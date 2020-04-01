@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# bind key to 'gnome-terminal --geometry=80x8 -e /path/to/quickterm'
+
+# Write commands out to a script then nohup it to ensure it finished what it
+# needs to do
+if [ "$(uname -s)" == "Linux" ]; then
+    input=~/tmp/quickterm.input
+    dialog=$(which dialog)
+else
+    input=$(dirname $BASH_SOURCE)/quickterm.input
+    dialog=$(which gdialog)
+fi
+
+output=~/tmp/quickterm.output
+
+# Cleanup on cancel
+trap "rm -f $input $output ~/tmp/qt.tmp; exit" SIGHUP SIGINT SIGTERM
+
+if [ -z $dialog ]; then
+  echo "dialog is required and does not appear to be installed."
+  exit 1
+fi
+
+# Pre-clean
+rm -f "$input" "nohup.out" "~/tmp/qt.tmp"
+
+# Source aliases and bashrc in the script
+echo -e '. ~/.bashrc\n. ~/.bash_aliases\n' >$input
+
+# Prompt for user input and store the response
+$dialog --inputbox "Run: " 24 80 2>>$input
+dialogResponse=$?
+
+# Write out the script exit code when it finishes running
+echo -e '\necho $? >~/tmp/qt.tmp' >> $input
+
+case $dialogResponse in
+  0) nohup sh $input &>$output;;
+  #1);; # Cancel pressed
+  #255);; # [ESC] key pressed
+esac
+
+# Get the script exit code
+response=$(cat ~/tmp/qt.tmp)
+
+# Tell us if it failed
+case $response in
+  0) ;;
+  *) cat $output; echo "Error $response: press any key to continue"; read dummy;;
+esac
+
+rm -f $output
+

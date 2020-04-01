@@ -1,0 +1,55 @@
+#!/bin/bash
+
+user=p2l8
+server=bowen
+domain=ugrad.cs.ubc.ca
+
+declare -A servers=([r]=remote [l]=lulu [b]=bowen [g]=gambier)
+
+usage="\
+Usage: $(basename $0) [OPTIONS]
+UBC SSH wrapper
+  -r           Set server to 'remote'
+  -l           Set server to 'lulu'
+  -b           Set server to 'bowen'
+  -g           Set server to 'gambier'
+  -e           Set server to ssh-ubuntu and domain to ece.ubc.ca
+  -u USER      Set user to USER (default is $user)
+  -d DOMAIN    Set domain to DOMAIN (default is $domain)
+  -s SERVER    Set server to SERVER (default is $server)
+  -h           Show this menu
+"
+
+while [ "${1:0:1}" == "-" ]; do
+  arg="$1"
+  for ((i = 1; i < ${#arg}; i++)); do
+    case ${arg:$i:1} in
+      r | l | b | g)
+        server=${servers[${arg:$i:1}]}
+        [[ ${#arg} == 2 ]] && shift
+      ;;
+      e)
+        domain=ece.ubc.ca
+        server=ssh-ubuntu
+        [[ ${#arg} == 2 ]] && shift
+      ;;
+      u)
+        user=$2
+        shift && [[ ${#arg} == 2 ]] && shift
+      ;;
+      d)
+        domain=$2
+        shift && [[ ${#arg} == 2 ]] && shift
+      ;;
+      s)
+        server=$2
+        shift && [[ ${#arg} == 2 ]] && shift
+      ;;
+      h) echo "$usage" && exit 1;;
+      *) echo "Unknow option \`$1'. Try $(basename $0) -h for more info" && exit 1 ;;
+    esac
+  done
+done
+
+ssh $user@$server.$domain
+

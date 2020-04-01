@@ -1,0 +1,32 @@
+#!/bin/bash
+if [ -z $1 ] || [ $1 == 'v' ];
+then
+	DATE=$(date +%d.%m.%y)
+	scp -rp server:"~/mineserv/{world,logs}" ~/serverbkp/
+	cd ~/serverbkp/
+	if [ -a world$DATE ];
+	then
+		DATE=$(date +%d.%m.%y.%H.%M.%S)
+	fi
+
+	mv world{,$DATE}
+	mv logs world$DATE/
+	gunzip world$DATE/logs/*
+	cat world$DATE/logs/* |grep 'greps:' >> greps
+	sort -u greps >>tmp
+	rm greps
+	mv tmp greps
+	cat world$DATE/logs/* |grep 'left the game\|joined the game' > serveractivity/serveractivity$DATE
+fi
+
+if [ -z $1 ] || [ $1 == 'f' ];
+then
+	DATE=$(date +%d.%m.%y)
+
+	cd ~/ftbserverbkp/
+	if [ -a ftbserverbkp$DATE ];
+	then
+		DATE=$(date +%d.%m.%y.%H.%M.%S)
+	fi
+	cp -r ~/ftbserver/ ~/ftbserverbkp/$DATE
+fi

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+sudo test
+sudo -i /opt/lampp/manager-linux.run &> /dev/null &

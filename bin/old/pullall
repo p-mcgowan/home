@@ -1,0 +1,9 @@
+#!/bin/bash
+
+git checkout master
+for remote in $(git branch -r |grep -v '\->'); do
+  git branch --track $remote;
+done
+git fetch --all
+git pull --all
+

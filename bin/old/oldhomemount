@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sudo mount -t auto -v /dev/sda4 ~/mnt/oldhome

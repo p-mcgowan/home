@@ -1,0 +1,12 @@
+#! /bin/bash
+gnome-open ~/220books/book220.pdf &> /dev/null 
+cd ~/220books/hw
+if [ -d hw$1 ]; then
+	cd hw$1
+else
+	mkdir hw$1
+	cd hw$1
+	cp ~/220books/hw/template.tex ./hw$1.tex
+	sed -i s/HOMEWORKNUMBER/$1/g hw$1.tex
+fi
+gedit hw$1.tex &> /dev/null &

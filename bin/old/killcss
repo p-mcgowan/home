@@ -1,0 +1,14 @@
+#!/bin/bash
+
+files=($(find . -type d))
+
+mkdir -p ~/deletions.temp
+
+for dir in ${files[*]}; do
+  if [ "$1" == "-f" ]; then
+    find $dir -name '*.css' -exec /bin/sh -c 'sass=$(basename {} .css).scss; test -f $(dirname {})/$sass && echo moving: {}' \;
+    find $dir -name '*.css' -exec /bin/sh -c 'sass=$(basename {} .css).scss; test -f $(dirname {})/$sass && mv {} ~/deletions.temp' \;
+  else
+    find $dir -name '*.css' -exec /bin/sh -c 'sass=$(basename {} .css).scss; test -f $(dirname {})/$sass && echo {}' \;
+  fi
+done

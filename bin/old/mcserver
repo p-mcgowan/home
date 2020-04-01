@@ -1,0 +1,23 @@
+#!/bin/bash
+
+dir=$PWD
+cd /cygdrive/c/Users/Patrick/Desktop/mc1.8server
+runCMD="java -Xmx1024M -Xms1024M -jar 187.jar nogui
+"
+
+if [ "$1" == "-c" ]; then
+  shift
+  runCMD=$*'\n'
+  screen -S mcserver -X stuff "$runCMD"
+elif [ "$1" == "-l" ]; then
+  less +G screenlog.0
+else
+  if ! $(screen -ls |grep -q mcserver); then
+    screen -dmS mcserver -L
+    sleep 1
+    screen -S mcserver -X stuff "$runCMD"
+  else
+    screen -S mcserver -X stuff "$runCMD"
+  fi
+fi
+cd $dir

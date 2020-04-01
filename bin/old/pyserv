@@ -1,0 +1,25 @@
+#!/bin/bash
+
+usage="
+Usage: $(basename $0) [-p PORT] [-l FILE] [DIR]
+options:
+  -p, --port   Use PORT instead of 8000
+  -h, --help   Show this menu
+  -l, --log    Send logs to FILE
+"
+
+logfile=
+startdir=$PWD
+while [ "$1" != "" ]; do
+  case $1 in
+    -p | --port) port=$2; shift;;
+    -h | --help) echo "$usage"; exit 1;;
+    -l | --log) logfile='>'$2; shift;;
+    -*) echo -e "Unknown option $1\nTry $(basename $0) -h for more info"; exit 1;;
+    *) startdir=$1;;
+  esac
+  shift
+done
+
+cd $startdir
+python -m SimpleHTTPServer $port $logfile

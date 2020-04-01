@@ -1,0 +1,39 @@
+#!/data/data/com.spartacusrex.spartacuside/files/system/bin/bash
+
+apk=
+loc=/home/pat/AndroidStudioProjects/
+host=
+
+usage="\
+Usage: $(basename $0) OPTIONS [ARGS] APK
+where APK is the top level 
+  -l        rsync from local computer
+  -r        rsync from remote computer
+  -L LOC    LOC is the location of the project 
+            (default is ~/AndroidStudioProjects/)
+  -h        Show this menu
+"
+
+while [ "$1" != "" ]; do
+  case $1 in
+    -l) host="pat@192.168.0.100:" ;;
+    -r) host="pat@$(resolve patcraft.gr0k.org):" ;;
+    -L) loc="$2" && shift ;;
+    -h) echo "$usage" && exit 1 ;;
+    *) apk=$1 && break;;
+  esac
+  shift
+done
+      
+if [ "$host" == "" ]; then
+  echo Hostname unspecified
+  exit 1
+fi
+
+echo "Invoke: rsync $host$loc/$apk/app/build/outputs/apk/app-debug.apk . [y/n]? "
+read input
+if [ "$input" == "y" ] || [ "$input" == "Y" ]; then
+  rsync $host$loc/$apk/app/build/outputs/apk/app-debug.apk .
+else
+  echo Aborting
+fi

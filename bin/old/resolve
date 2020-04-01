@@ -1,0 +1,15 @@
+#!/data/data/com.termux/files/usr/bin/bash 
+
+host=$1
+name=$(echo $host |sed 's/.*@\(.*\):.*/\1/g')
+if [ "$(echo $name |sed 's/[0-9.]//g')" == "" ]; then
+  echo Already resolved: $name
+	ip=$name
+else
+  ip=$(jping $name |grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}')
+fi
+if [ "$ip" != "" ]; then
+  echo ${host/$name/$ip}
+else
+  echo Unknown host
+fi

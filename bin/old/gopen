@@ -1,0 +1,6 @@
+# am start -a android.intent.action.VIEW -t application/vnd.android.package-archive -d file:///sdcard/apkProjects/$NAME.apk
+# am start -a android.intent.action.MAIN -n org.me.$NAME/.MainActivity
+# am start -a android.intent.action.DELETE -d package:org.me.$NAME
+#su -c am start -a android.intent.action.GET_CONTENT -t */* -d $1
+am start -a android.intent.action.GET_CONTENT -t */* -d $1
+#view main default edit get_content

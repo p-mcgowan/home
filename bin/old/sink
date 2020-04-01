@@ -1,0 +1,23 @@
+#!/bin/bash
+# Sync script to update repos/scripts/etc across devices
+# Pat McGowan September 12, 2014
+
+case "$1" in
+  "cnotes")
+    case "$2" in
+      "phone")
+        scp -rP 2222 /home/pat/bin/cnotes root@192.168.0.157:/storage/emulated/0/bin/
+        ;;
+      "laptop")
+        ;;
+      "desktop")
+        ;;
+      *)
+        echo no device
+        ;;
+    esac
+    ;;
+  *)
+    echo Help message
+    ;;
+esac  

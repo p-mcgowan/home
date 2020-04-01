@@ -1,0 +1,1 @@
+echo -e '\n\n'; repeat 5 'su -c vibrate 0.1 && sleep 1'; su -c dumpsys activity |grep mFoc; su -c vibrate 0.4

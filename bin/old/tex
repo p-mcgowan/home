@@ -1,0 +1,14 @@
+#!/bin/bash
+
+file=${1/.tex/}
+
+mkdir -p ${file}_output/
+set -e
+set -o pipefail
+exec 2>&1
+(
+  pdflatex $file.tex
+  mv -f $file.aux $file.log $file.pdf $file.out $file.toc ${file}_output/
+  # insert your pdf viewer here
+  # gnome-open ${file}_output/$file.pdf
+) >${file}_output/$file-build.log

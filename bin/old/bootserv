@@ -1,0 +1,12 @@
+#!/bin/bash
+
+
+if ls ~/tfcserver/crash-reports/* &>/dev/null; then
+	#put restart date in text file
+	echo $(date +%Y.%m.%d.%H%M\ %a) >>~/tfcserver/crashes/restarts
+	mv ~/tfcserver/crash-reports/* ~/tfcserver/crashes
+	screen -S tfc -p 0 -X stuff $'stop\r'
+	sleep 10	
+	screen -S tfc -p 0 -X stuff $'tfcserver\r'
+fi
+	

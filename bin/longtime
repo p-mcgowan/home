@@ -1,0 +1,99 @@
+
+# TIMEONE 0
+
+usage="Simple timer script to get the difference between 2 times.
+With no options, toggles timer on and off
+
+Usage: $(basename $0) [options]
+options:
+  -t, --time      Print current time
+  -s, --start     Start timer
+  -f, --finish    Stop timer
+  -c, --current   Get start/finish status
+  -v, --verbose   Format the duration string
+  -q, --quiet     Only output timer results
+"
+
+declare -A opts
+for i in "-t" "-s" "-f" "-c" "-v" "-q"; do
+  opts[$i]=false
+done
+
+while [ -n "$1" ]; do
+  case $1 in
+    -t | --time) opts["-t"]=true ;;
+    -s | --start) opts["-s"]=true; opts["-f"]=false ;;
+    -f | --finish) opts["-f"]=true; opts["-s"]=false ;;
+    -c | --current) opts["-c"]=true ;;
+    -v | --verbose) opts["-v"]=true; opts["-q"]=false ;;
+    -q | --quiet) opts["-q"]=true; opts["-v"]=false ;;
+    -h | --help) echo "$usage"; exit 0;;
+    *) echo "Unknown option '$1'"; echo "$usage"; exit 1;;
+  esac
+  shift
+done
+
+writeDifference() {
+  delta=$(($2 - $1))
+  sec=$(($delta % 60))
+  min=$(($delta / 60))
+  hour=$(($delta / 3600))
+  day=$(($hour / 24))
+
+  hour=$(($min / 60 + $hour))
+  min=$(($min % 60))
+  day=$(($hour / 24 + $day))
+  hour=$(($hour % 60))
+
+  sec="0$sec"
+  sec=${sec: -2}
+  min="0$min"
+  min=${min: -2}
+  hour="0$hour"
+  hour=${hour: -2}
+
+  if ${opts["-v"]} && ! ${opts["-q"]}; then
+    echo -e "Days: $day\nHours: $hour\nMinutes: $min\nSeconds: $sec"
+  else
+    echo $day:$hour:$min:$sec
+  fi
+}
+
+t1=($(grep 'TIMEONE' $0))
+t1=${t1[2]}
+t2=$(date +%s)
+
+if ${opts["-c"]}; then
+  if [ $t1 -eq 0 ]; then
+    ! ${opts["-q"]} && echo Timer not started
+  else
+    ! ${opts["-q"]} && echo "Timer running - $(writeDifference $t1 $t2)"
+  fi
+  exit 0
+fi
+
+if ${opts["-t"]}; then
+  if [ $t1 -eq 0 ]; then
+    ! ${opts["-q"]} && echo Timer not started
+    exit 0
+  fi
+  ! ${opts["-q"]} && echo Time elapsed at $(date):
+  writeDifference $t1 $t2
+  exit 0
+fi
+
+if ( ${opts["-s"]} || [ $t1 -eq 0 ] ) && ! ${opts["-f"]}; then
+  sed -i "s/#\ TIMEONE.*/#\ TIMEONE\ $t2/g" $0
+  ! ${opts["-q"]} && echo Timer started: $(date)
+  exit 0
+else
+  if ${opts["-f"]} && [ $t1 -eq 0 ]; then
+    ! ${opts["-q"]} && echo Timer not started
+    exit 0
+  fi
+  ! ${opts["-q"]} && echo Timer stopped: $(date)
+  writeDifference $t1 $t2
+  sed -i "s/#\ TIMEONE.*/#\ TIMEONE\ 0/g" $0
+fi
+
+

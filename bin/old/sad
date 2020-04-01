@@ -1,0 +1,14 @@
+#!/bin/bash
+
+find . -name stats >tmp
+sed -i 's/\.\///g' tmp
+while read file; do
+  sed -i '/ammoType/d' "$file"
+  sed -i 's/placeholder/placeholder\nammoType/g' "$file"
+done <tmp
+rm tmp
+
+# multimove
+# find . -name names -print0 |while IFS= read -r -d  file; do mv "$file" "${file/names/legendary}"; done
+
+# nth line sed - sed 'NUMq;d' file

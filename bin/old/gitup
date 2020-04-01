@@ -1,0 +1,15 @@
+#!/bin/bash
+
+branch=$(git branch |grep '\*' |sed 's/\*\ //g')
+case $1 in
+  PULL)
+    echo Pulling from origin $branch
+    git pull origin $branch
+  ;;
+  PUSH)
+    echo Pushing to origin $branch
+    git push origin $branch
+  ;;
+  *)
+    echo wtf
+esac

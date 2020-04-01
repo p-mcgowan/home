@@ -1,0 +1,16 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+wlan=$(ifconfig wlan0 |grep -o 'inet addr:[0-9\.]\+' |sed 's/[^0-9\.]//g')
+data=$(ifconfig rmnet0 |grep -o 'inet addr:[0-9\.]\+' |sed 's/[^0-9\.]//g')
+
+case "$wlan$data" in
+  "") echo Could not find wlan0 or rmnet0;;
+  "$data") echo Data: $data;;
+  "$wlan") echo Wifi: $wlan;;
+  *)
+    echo Data: $data
+    echo Wifi: $wlan
+  ;;
+esac
+exit 0
+

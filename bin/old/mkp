@@ -1,0 +1,223 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+function buildPro() {
+  cd $PROJECTHOME
+  echo Replacing build files...
+  rm -rf build
+  rm -rf dist
+  mkdir -m 770 -p dist
+  mkdir -m 770 -p build/classes
+  rm src/org/me/$NAME/R.java
+  echo Creating R.java...
+  aapt p -f -v -M AndroidManifest.xml -F ./build/resources.res -I ~/system/classes/android.jar -S res/ -J src/org/me/$NAME 2>&1|tee $PROJECTHOME/aapt.log
+  if $(grep -q 'error' aapt.log);then
+    echo There was an error building. See $PROJECTHOME/aapt.log for details
+  exit 1
+  fi
+  rm $PROJECTHOME/aapt.log
+  cd src
+  echo Compiling...
+  javac -verbose -cp ../libs/$LIBTARGET -d ../build/classes org/me/$NAME/MainActivity.java 2>&1|tee $PROJECTHOME/javac.log
+  if $(tail -n1 $PROJECTHOME/javac.log |grep -q 'error'); then
+    echo There was an error compiling. See $PROJECTHOME/javac.log for details
+    exit 1
+  fi
+  rm $PROJECTHOME/javac.log
+  cd $PROJECTHOME/build/classes/
+  jar -v ../$NAME.jar org
+  cd $PROJECTHOME
+  echo Running proguard...
+  proguard @proguard.cfg
+  echo Converting to dex format...
+  dx --dex --verbose --output=./build/$NAME.dex ./build/$NAME.pro.jar ./libs/$LIBTARGET
+  cd $PROJECTHOME
+  echo Building apk...
+  apkbuilder ./dist/$NAME'_'.apk -v -u -z ./build/resources.res -f ./build/$NAME.dex
+  cd dist
+  echo Signing apk...
+  signer $NAME'_'.apk $NAME.apk
+}
+
+function buildDefault() {
+  cd $PROJECTHOME
+  echo Replacing build files...
+  rm -rf build
+  rm -rf dist
+  mkdir -m 770 -p dist
+  mkdir -m 770 -p build/classes
+  rm src/org/me/$NAME/R.java 
+  echo Creating R.java...
+  aapt p -f -v -M AndroidManifest.xml -F ./build/resources.res -I ~/system/classes/android.jar -S res/ -J src/org/me/$NAME 2>&1|tee $PROJECTHOME/aapt.log
+  if $(grep -q 'error' aapt.log);then
+    echo There was an error building. See $PROJECTHOME/aapt.log for details
+  exit 1
+  fi
+  rm $PROJECTHOME/aapt.log
+  cd src
+  echo Compiling...
+  javac -verbose -cp ../libs/$LIBTARGET -d ../build/classes org/me/$NAME/MainActivity.java 2>&1|tee $PROJECTHOME/javac.log
+  if $(tail -n1 $PROJECTHOME/javac.log |grep -q 'error'); then
+    echo There was an error compiling. See $PROJECTHOME/javac.log for details
+  exit 1
+  fi
+  rm $PROJECTHOME/javac.log
+  cd ../build/classes/
+  echo Converting to dex format...
+  dx --dex --verbose --no-strict --output=../$NAME.dex org ../../libs/$LIBTARGET
+  cd ../..
+  echo Building apk...
+  apkbuilder ./dist/$NAME'_'.apk -v -u -z ./build/resources.res -f ./build/$NAME.dex
+  cd dist
+  echo Signing apk...
+  signer $NAME'_'.apk $NAME.apk
+}
+  
+function installApk() {
+  cd $PROJECTHOME
+  echo Installing $NAME...
+  if [ -f /sdcard/apkProjects/$NAME.apk ];then
+    rm /sdcard/apkProjects/$NAME.apk
+  fi
+  cp ./dist/$NAME.apk /sdcard/apkProjects/$NAME.apk
+  su -c am start -a android.intent.action.VIEW -t application/vnd.android.package-archive -d file:///sdcard/apkProjects/$NAME.apk
+}
+
+function runApp() {
+  echo Running $PROJECTHOME...
+  su -c am start -a android.intent.action.MAIN -n org.me.$NAME/.MainActivity
+}
+
+function uninstall() {
+  echo Uninstalling $NAME...
+  su -c am start -a android.intent.action.DELETE -d package:org.me.$NAME
+}
+
+usage="\
+$(basename $0)
+App building helper script
+
+Usage: $(basename $0) OPTIONS... DIRNAME...
+
+Options
+  -p, --pro        Build apk with Proguard
+  -b, --build      Build apk without Proguard
+  -i, --install    Install apk to sdcard
+  -u, --uninstall  Install apk to sdcard
+  -r, --run        Run the installed apk
+  -t, --test       Build with proguard and install
+  -n, --new        Initialize a new project from template
+  -h, --help       Show this menu
+"
+readonly PRO=0
+readonly BUILD=1
+readonly INSTALL=2
+readonly RUN=3
+readonly INIT=4
+readonly DIR=5
+readonly UINST=6
+readonly TEST=7
+readonly LIBS=8
+
+declare -a flags=( "" "" "" "" "" "" "" "" "" )
+
+if [ "$1" == "" ]; then
+  echo "Requires arguments."
+  echo "Try \`$(basename $0) -h' for usage"
+  exit 1
+fi
+
+while [ "$1" != "" ]; do
+  case $1 in
+    -b | --build) flags[$BUILD]="$2" && shift;;
+    -p | --pro) flags[$PRO]="$2" && shift;;
+    -i | --install) flags[$INSTALL]="$2" && shift;;
+    -u | --uninstall) flags[$UINST]="$2" && shift;;
+    -r | --run) flags[$RUN]="$2" && shift;;
+    -t | --test) flags[$TEST]="$2" && shift;;
+
+    -l | --lib) flags[$LIBS]="$2" && shift;;
+
+    -n | --new) flags[$INIT]="$2" && shift;;
+    -h | --help) echo "$usage" && exit 1;;
+    *) echo "Unknown switch -- '$1'. Aborting" && exit 1;;
+  esac
+  shift
+done
+
+i=0
+if [ "${flags[$BUILD]}" != "" ]; then
+  ((i++))
+  flags[$DIR]="${flags[$BUILD]}"
+fi
+if [ "${flags[$RUN]}" != "" ]; then
+  ((i++))
+  flags[$DIR]="${flags[$RUN]}"
+fi
+if [ "${flags[$PRO]}" != "" ]; then
+  ((i++))
+  flags[$DIR]="${flags[$PRO]}"
+fi
+if [ "${flags[$INSTALL]}" != "" ]; then
+  ((i++))
+  flags[$DIR]="${flags[$INSTALL]}"
+fi
+if [ "${flags[$UINST]}" != "" ]; then
+  ((i++))
+  flags[$DIR]="${flags[$UINST]}"
+fi
+if [ "${flags[$INIT]}" != "" ]; then
+  ((i++))
+  flags[$DIR]="${flags[$INIT]}"
+fi
+if [ "${flags[$TEST]}" != "" ]; then
+  ((i++))
+  flags[$DIR]="${flags[$TEST]}"
+fi
+if [ $i == 0 ]; then
+  echo "Error: Project directory required."
+  exit 1
+elif [ $i -gt 1 ]; then
+  echo "Error: Too many build options."
+  exit 1
+fi
+
+RELDIR=$PWD
+APPFOLDER=~/aaps
+NAME=$(basename ${flags[$DIR]})
+PROJECTHOME=$RELDIR/${flags[$DIR]}
+LIBTARGET=demolib.jar
+if [ "${flags[$LIBS]}" != "" ]; then
+  LIBTARGET="${flags[$LIBS]}"
+fi
+
+if [ "${flags[$INIT]}" != "" ]; then
+  if [ -d $PROJECTHOME ]; then
+    echo "Error: Directory $PROJECTHOME exists."
+    exit 1
+  else
+    su -c cp -r $APPFOLDER/app_template $PROJECTHOME
+    mv $PROJECTHOME/src/org/me/{app_template,$NAME}
+    sed -i "s|app_template|$NAME|g" $PROJECTHOME/AndroidManifest.xml $PROJECTHOME/src/org/me/$NAME/MainActivity.java $PROJECTHOME/src/org/me/$NAME/UserSettingActivity.java $PROJECTHOME/res/values/strings.xml $PROJECTHOME/proguard.cfg
+    sed -i "s|MainActivity|$NAME|g" $PROJECTHOME/res/values/strings.xml
+    echo "Created new app folder: $PROJECTHOME"
+  fi
+  exit 0
+fi
+
+if [ "${flags[$RUN]}" != "" ]; then
+  runApp
+elif [ "${flags[$BUILD]}" != "" ]; then
+  buildDefault
+elif [ "${flags[$PRO]}" != "" ]; then
+  buildPro
+elif [ "${flags[$INSTALL]}" != "" ]; then
+  installApk
+elif [ "${flags[$UINST]}" != "" ]; then
+  uninstall
+elif [ "${flags[$TEST]}" != "" ]; then
+  buildPro &&
+  installApk
+fi
+logcat -f $PROJECTHOME/logcat.log -d
+exit 0
+

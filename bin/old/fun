@@ -1,0 +1,33 @@
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+  echo Usage: fun [lines] [file]
+  exit 1
+fi
+declare -a lines
+i=0
+j=0
+k=0
+file=${2-~/bin/cnotes}
+while read line; do ((j++)); done <$file
+while read line; do
+  tmp=${line//\w/}
+  if [ ${#tmp} -gt 5 ]; then
+    lines[i]=$tmp
+    ((i++))
+  fi
+  ((k++))
+done <$file
+
+total=$i
+swap=false
+tSleep='sleep 0'
+for ((i = 0; i < ${1-100}; i++)); do 
+  echo ${lines[$(rand $((total - 1)))]}
+  if [ $(rand -gt 1) ]; then
+    case $(rand 12) in
+      [0])tSleep='sleep 0.2';;
+      [1-2])tSleep='sleep 0.1';;
+      *)tSleep='';;
+    esac
+  fi
+  $tSleep
+done

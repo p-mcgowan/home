@@ -1,0 +1,147 @@
+#!/data/data/com.termux/files/usr/bin/bash 
+
+trap "su -c svc data disable; exit 0" SIGTERM SIGINT SIGHUP
+
+usage="\
+Usage: $(basename $0) options...
+Gets a network connection through data if wifi unavailable
+Options:
+  -e conn     enable data or wifi
+  -d conn     disable data or wifi
+  -c [cmd]    try to get a network connection, run [cmd] if supplied
+  -t conn     toggle data/wifi connection
+  -h          show this menu
+"
+
+declare -A name
+declare -A conn
+name[data]="data"
+name[d]="data"
+name[wifi]="wifi"
+name[w]="wifi"
+conn[data]="rmnet0"
+conn[d]="rmnet0"
+conn[wifi]="wlan0"
+conn[w]="wlan0"
+
+function log {
+  if true; then
+    echo -ne '\r\033[2K'$* 1>&2
+  fi
+  #echo $* 1>&2
+}
+
+function enabled {
+  [[ $(ifconfig 2>&1 |grep ${conn[$1]}) =~ [a-z] ]] && \
+  exit 0 || \
+  exit 1
+}
+
+function connected {
+  if ! $(enabled $1); then
+    exit 1
+  else
+    [[ $(ifconfig ${conn[$1]} 2>&1 |grep 'inet add') =~ [a-z] ]] && \
+    exit 0 || \
+    exit 1
+  fi
+}
+
+function on {
+  su -c svc ${name[$1]} enable
+}
+
+function off {
+  su -c svc ${name[$1]} disable
+}
+
+function waitForConn {
+  log Checking $1 connection
+  i=0
+  for ((i = 0; i < 20; i++)); do
+    echo -n '.' 1>&2
+    if ! $(connected $1); then
+      sleep 0.5
+    else
+      log Connected
+      exit 0
+    fi
+  done
+  log Could not connect
+  exit 1
+}
+
+function getConnection {
+  log Getting connection
+  if $(connected wifi) || $(connected data); then
+    exit 0
+  else
+    if ! $(connected wifi); then
+      on wifi
+    fi
+    if $(waitForConn wifi); then
+      exit 0
+    else
+      if ! $(enabled data); then
+        on data
+      fi
+      if $(waitForConn data); then
+        exit 0
+      else
+        exit 1
+      fi
+    fi
+  fi
+  exit 1
+}
+
+function restore {
+  log Cleanup
+  if $wifi && ! $(enabled wifi); then
+    on wifi
+  elif ! $wifi && $(enabled wifi); then
+    off wifi
+  fi
+  if $data && ! $(enabled data); then
+    on data
+  elif ! $data && $(enabled data); then
+    off data
+  fi
+}
+
+data=false
+wifi=false
+$(enabled data) && data=true
+$(enabled wifi) && wifi=true
+
+case $1 in
+  -d | -e)
+    case $2 in
+      data | wifi | d | w) [[ $1 =~ -e ]] && on $2 || off $2;;
+      all | a | "") [[ $1 =~ -e ]] && on data && on wifi || (off data && off wifi);;
+      *) echo $1 requires an argument;;
+    esac
+  ;;
+  -c)
+    if $(getConnection); then
+      shift
+      log
+      $*
+      restore
+    else
+      log Unable to connect
+      restore
+      exit 0
+    fi
+  ;;
+  -t)
+    if $(enabled $2); then
+      off $2
+    else
+      on $2
+    fi
+  ;;
+  -h) echo "$usage" && exit 0 ;;
+  *) echo -e "Invalid option -$1\nTry $(basename $0) -h for more info"
+esac
+

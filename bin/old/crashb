@@ -1,0 +1,26 @@
+#!/bin/bash
+
+backup_dir=~/games/ftb/bkps
+saves_dir=~/games/ftb/CrashLanding/minecraft
+
+case "$1" in
+  "load" | "-l")
+    echo "Really overwrite saves? [y/n]"
+    read input
+    if [ "$input" == "y" ]; then
+      mv $saves_dir/saves $saves_dir/bkps/saves$(date +%d%m%H%M%S)
+      cp -r $backup_dir/saves $saves_dir/
+      echo Saves overwritten
+    else
+      echo Exiting
+    fi
+  ;;
+  "save" | "-s")
+    mv $backup_dir/saves $backup_dir/saves$(date +%d%m%H%M%S)
+    cp -r $saves_dir/saves $backup_dir/
+    echo Saved files
+  ;;
+  *)
+    echo "Unknown option. Use 'save' (-s) or 'load' (-l)"
+  ;;
+esac

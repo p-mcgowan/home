@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [[ $(uname -a) =~ Android ]]; then
+  curl -s "https://www.dict.cc/german-english/$1.html" \
+    |html2text \
+    |sed -n '/Tabular\ list/,/back\ to\ top/p' \
+    |less
+else
+  google -w "https://www.dict.cc/german-english/$1.html"
+fi

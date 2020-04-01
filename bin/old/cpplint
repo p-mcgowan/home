@@ -1,0 +1,40 @@
+#!/bin/bash
+
+cpp_path="/home/pat"
+cpp_flags=""
+cpp_files=""
+
+while [ "$1" != "" ]; do
+  echo $1
+  case $1 in
+    -r)
+echo -e r
+      cpp_flags=$cpp_flags" --filter=-readability/streams *.[ch]*"
+      shift
+    ;;
+    -d)
+echo -e d
+      shift
+      cpp_flags=$cpp_flags" --root=$1"
+      shift
+    ;;
+    "")
+echo -e n
+      $cpp_path/cpplint.py $cpp_flags $cpp_files
+      exit 0
+    ;;
+    .)
+echo -e f
+      cpp_files=$cpp_files" $1"
+      shift
+    ;;
+    *)
+echo -e h
+      echo "Invalid format. Type \`$(basename $0) [fd] path_to_file(s)\' to run the formatting style guide"
+      echo "  use -f for single file, or -d for directory"
+      exit 1
+    ;;
+  esac
+done
+
+#$cpp_path/cpplint.py --root=$(dirname $PWD) 

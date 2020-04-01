@@ -1,0 +1,5 @@
+#!/bin/bash
+
+cd ~/.wine/drive_c/CM60S
+wine Cirmaker.exe &
+

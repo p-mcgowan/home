@@ -1,0 +1,12 @@
+#!/bin/bash
+DATE=$(date +%d.%m.%y)
+scp -r server:"~/games/minecraftd/" ~/serverbkp/
+cd ~/serverbkp/
+if [ -a minecraftd$DATE ];
+then
+	DATE=$(date +%d.%m.%y.%H.%M.%S)
+	mv minecraftd{,$DATE}
+else
+	mv minecraftd{,$DATE}
+fi
+rm minecraftd$DATE/minecraft_server*

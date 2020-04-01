@@ -1,0 +1,24 @@
+#!/bin/bash
+
+usage="\
+Usage: $(basename $0) [-p | -d] file(s)
+  Uses sed to replace interpreter
+  -p,  \"s|/bin/bash|/data/data/com\.spartacusrex\.spartacuside/files/system/bin/bash|g\" file(s)
+  -b,  \"s|/data/data/com\.spartacusrex\.spartacuside/files/system/bin/bash|/bin/bash|g\" file(s)"
+
+shell='/data/data/com\.spartacusrex\.spartacuside/files/system/bin/bash'
+replace='/data/data/com\.spartacusrex\.spartacuside/files/system/bin/bash'
+case $1 in
+  -b)  replace='/bin/bash';;
+  -p)  shell='/bin/bash';;
+  *) echo "$usage"; exit 1;;
+esac
+
+shift
+if [ "$1" == "" ]; then
+  echo "No input files"
+  exit 1
+fi
+
+sed -i "s|$shell|$replace|g" $*
+

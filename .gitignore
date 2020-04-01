@@ -1,0 +1,17 @@
+/*
+/*/
+!bin/
+!.android_aliases
+!mystuff
+!.androidrc
+!.bash_aliases
+!.bash_hosts
+!.bashrc
+!.dircolors
+!.git-completion.bash
+!.gitignore
+!.profile
+!.tmux.conf
+!.vim/
+!.vimrc
+.vim/.netrwhist

@@ -1,0 +1,45 @@
+#!/bin/bash
+
+for i in {0..9}; do
+  echo -e "\033[${i}m $i====$i \033[0m"
+done
+echo -e "\033[21m 21====21 \033[0m"
+for i in {30..36}; do
+  echo -e "\033[${i}m $i====$i \t \033[1;${i}m $i====$i \033[0m"
+done
+for i in {40..47}; do
+  echo -e "\033[${i}m $i====$i \t \033[1;${i}m $i====$i \033[0m"
+done
+for i in {90..96}; do
+  echo -e "\033[${i}m $i====$i \t \033[1;${i}m $i====$i \033[0m"
+done
+for i in {100..107}; do
+  echo -e "\033[${i}m $i====$i \t \033[1;${i}m $i====$i \033[0m"
+done
+exit 0
+
+
+# 1-9 => text formatting
+# 1: bold
+# 2: faint
+# 3: italic
+# 4: underline
+# 5: ??
+# 6: ??
+# 7: highlight / invert
+# 8: hidden / trans
+# 9: strikethrough
+
+# 30-37 => text colour
+# 30: black
+# 31: red
+# 32: green
+# 33: yellow
+# 34: blue
+# 35: purple
+# 36: teal
+# 37: light grey
+
+# 40-47 => background colour
+# 90-97 => light text
+# 100-107 - light background

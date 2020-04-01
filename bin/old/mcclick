@@ -1,0 +1,10 @@
+#!/bin/bash
+if [ "$1" == "-m" ]; then
+	xdotool search --name minecraft key Escape
+	xdotool search --name minecraft type '/mail read'
+	exit 0
+fi
+while true; do
+	xdotool search --name minecraft key k
+	sleep 0.2
+done

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# commits on date by me
+echo 'git log --pretty=format:"%^C- %an: %s" --after="2019-01-18" --until="2019-01-19" --author="p-mcgowan"'

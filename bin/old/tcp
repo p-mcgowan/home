@@ -1,0 +1,3 @@
+#!/bin/bash
+cd ~/crackpack
+java -jar ATLauncher.jar &

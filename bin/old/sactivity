@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cat ~/tfcserver/server.log |grep 'joined\|left' >~/tfcserver/serverActivity
+if [ "$1" == 'c' ]; then
+	cat ~/tfcserver/serverActivity
+fi

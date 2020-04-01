@@ -1,0 +1,3 @@
+#! /bin/bash
+cd ~/games/ftb
+java -jar FTB_Launcher.jar &

@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# bind key to 'gnome-terminal --geometry=80x8 -e /path/to/quickterm'
+# gnome-terminal --geometry 80x8 -- /home/pat/bin/quickterm
+# set -xv
+# exec 5>~/tmp/qtdebuglog
+# exec 2>&5
+
+
+# Write commands out to a script then nohup it to ensure it finished what it
+# needs to do
+if [ "$(uname -s)" == "Linux" ]; then
+    input=~/tmp/quickterm.input
+    dialog=$(which dialog)
+else
+    input=$(dirname $BASH_SOURCE)/quickterm.input
+    dialog=$(which gdialog)
+fi
+
+success=~/tmp/qtexit.log
+output=~/tmp/quickterm.log
+
+# Cleanup on cancel
+trap "rm -f $input $output nohup.out $success; exit" SIGHUP SIGINT SIGTERM
+
+if [ -z $dialog ]; then
+  echo "dialog ($dialog) is required and does not appear to be installed."
+  exit 1
+fi
+
+# Pre-clean
+rm -f $input $output nohup.out $success
+
+# Prompt for user input and store the response
+$dialog --inputbox "$(date +%A\ %y.%m.%d\ %H:%M) ($(date -d"9 hours ago" +"%H:%M") YVR)\nRun: " 24 80 2>>$input
+dialogResponse=$?
+
+# Write out the script exit code when it finishes running
+echo -e '\necho $? >'$success >> $input
+
+case $dialogResponse in
+  0) nohup bash -il -- $input &>$output;;
+  1 | 255) exit 0;; # Cancel or ESC
+esac
+
+# Get the script exit code
+if [ -f "$success" ]; then
+  response=$(cat "$success")
+else
+  response='$success does not exist'
+fi
+
+# Tell us if it failed
+case $response in
+  0) rm -f $input $output;;
+  *) cat $output; echo "Error $response: press any key to continue"; read dummy;;
+esac
+
+rm -f nohup.out $success

@@ -1,0 +1,173 @@
+#!/bin/bash
+
+# bookmarks - try whole word match, otherwise try fuzzy
+
+browser="${GOOGLER_BROWSER:-google-chrome}"
+bookmarks=~/.config/google-chrome/Default/Bookmarks
+logfile=~/tmp/google-script.log
+homepage='google.ca'
+mkdir -p ~/tmp/
+
+usage="\
+Usage: $(basename $0) [OPTIONS] URL
+Browser wrapper script. With no options given, google searches the URL string.
+  -s URL        Google search URL (default when only 1 url specified)
+  -l URL        Google lucky search URL
+  -f FILE       Open FILE with google-chrome
+  -b BOOKMARK   Search for bookmark instead of URL
+  -w URL        Use URL as address instead of google searching
+  -n            Start in a new window
+  -o OPTIONS    Pass in OPTIONS to browser. Quote for multiple arguments
+  -B BROWSER    Set browser to BROWSER (default google-chrome)
+  -M BOOKMARKS  Use file BOOKMARKS to search for bookmarks (default:
+                ~/.config/google-chrome/Default/Bookmarks). Note: format expects
+                google-style bookmarks, so this option may not work for other
+                browsers.
+  -c            Curl the url instead.
+  -P            Use plus symbol (+) instead of spaces in URLS (compatibility)
+  -v            Print the full url to console before opening.
+  -d            Print the full url to console instead of opening.
+  -D            Run with '--disable-web-security' flag (development).
+  -L            Run with '--enable-logging --v=1' flag (development).
+  -h            Show this menu"
+
+argsUntilNextOpt() {
+  opts=-[slfbwcnovDhBM]
+  n=0
+  str=
+  for i in "$@"; do
+    if [[ "$i" =~ ^$opts ]] || [ -z "$i" ]; then
+      break
+    else
+      str=$str" $i"
+      ((n++))
+    fi
+  done
+  echo "$n $str"
+}
+
+debug=false
+mode="d"
+plusInsteadOfSpaces=false
+curlmode=false
+verbose=false
+declare -a urlStack
+declare -a optStack
+stackIndex=0
+
+# Read from pipe
+if read -t 0; then
+  set -- $(cat)
+fi
+
+if [ $# == 0 ]; then
+  urlStack[$stackIndex]="$homepage"
+  ((stackIndex++))
+fi
+
+while [ "${1:0:1}" == "-" ]; do
+  arg="$1"
+  shift
+  for ((i = 1; i < ${#arg}; i++)); do
+
+    case ${arg:$i:1} in
+      l | b | w | s)
+        mode=${arg:$i:1}
+        res=($(argsUntilNextOpt "$@"))
+        shift ${res[0]}
+        str="${res[@]:1}"
+
+        case $mode in
+          l)
+            urlStack[$stackIndex]="${homepage}/search?btnI=1&q=""${str}"
+          ;;
+          b)
+            line=$(egrep -A 4 "\"name\":\ \"${str}\"" "$bookmarks" |grep -o "\"url\": \".*\"")
+            url=$(echo $line |cut -d '"' -f4)
+            if [ "$url" == "" ]; then
+              echo Could not find bookmark \'${str}\'
+              exit 1
+            fi
+            urlStack[$stackIndex]=$url
+          ;;
+          w)
+            urlStack[$stackIndex]="${str}"
+          ;;
+          s)
+            urlStack[$stackIndex]="${homepage}/search?q=${str}"
+          ;;
+        esac
+        ((stackIndex++))
+      ;;
+      f)
+        urlStack[$stackIndex]="$1"
+        ((stackIndex++))
+        shift
+      ;;
+      D)
+        optStack[$stackIndex]="${optStack[$stackIndex]} --disable-web-security"
+      ;;
+      L)
+        optStack[$stackIndex]="${optStack[$stackIndex]} --enable-logging --log-level=0"
+      ;;
+      n)
+        optStack[$stackIndex]="${optStack[$stackIndex]} --new-window"
+      ;;
+      o)
+        optStack[$stackIndex]="${optStack[$stackIndex]} $1"
+        shift
+      ;;
+      c)
+        curlmode=true
+      ;;
+      B)
+        browser="$1"
+        shift
+      ;;
+      M)
+        bookmarks="$1"
+        shift
+      ;;
+      h)
+        echo "$usage"
+        exit 0
+      ;;
+      v)
+        ! $debug && verbose=true
+      ;;
+      d)
+        debug=true
+        verbose=false
+      ;;
+      P)
+        plusInsteadOfSpaces=true
+      ;;
+      *) echo "Unknow option \`$arg'. Try $(basename $0) -h for more info" && exit 1;;
+    esac
+  done
+done
+
+# Still url to parse
+if [ ! -z "$*" ]; then
+  urlStack[$stackIndex]="${homepage}/search?q=$*"
+  ((stackIndex++))
+# Options given but no url
+elif [ "$stackIndex" -eq 0 ] && [ ! -z "$optStack[$stackIndex]" ]; then
+  ((stackIndex++))
+fi
+
+if $curlmode; then
+  for ((i = 0; i < stackIndex; i++)); do
+    $plusInsteadOfSpaces && urlStack[$i]=${urlStack[$i]// /+}
+    ${verbose} && echo curl ${optStack[$i]# } "${urlStack[$i]}"
+    ${debug} && echo curl ${optStack[$i]# } "${urlStack[$i]}" || \
+    curl ${optStack[$i]# } "${urlStack[$i]}"
+  done
+else
+  for ((i = 0; i < stackIndex; i++)); do
+    $plusInsteadOfSpaces && urlStack[$i]=${urlStack[$i]// /+}
+    ${verbose} && echo $browser ${optStack[$i]# } "${urlStack[$i]}"
+    ${debug} && echo $browser ${optStack[$i]# } "${urlStack[$i]}" || \
+    $browser ${optStack[$i]# } "${urlStack[$i]}" &>$logfile &
+  done
+fi

@@ -1,0 +1,4 @@
+#!/bin/bash
+cp $1 $1bkp
+sed -i 's/{[^$]/{\n/g' $1
+sed -i 's/\;[^$]/\;\n/g' $1

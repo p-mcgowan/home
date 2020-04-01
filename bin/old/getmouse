@@ -1,0 +1,2 @@
+watch -n1 xdotool getmouselocation
+# xev

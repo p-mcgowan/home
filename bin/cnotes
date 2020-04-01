@@ -1,0 +1,472 @@
+#!/bin/bash
+
+debug=false
+if $debug; then
+  logfile=~/tmp/$(basename $0)_debug.log
+  echo =================================================== >$logfile
+  exec 2>>$logfile
+  set -xv
+fi
+
+# Basic scheduling program
+working_dir=~/source/coursenotes
+mkdir -p $working_dir/config
+config_file="$working_dir/config/cnotes.conf"
+if [ ! -f $config_file ]; then
+  echo Error: Could not initialize: $working_dir/config/cnotes.conf not found.
+  # new config
+  echo -ne "Create one now (y/n)? "
+  read input
+  cc=
+  cf=
+  while [ "$input" == "y" ] || [ "$input" == "Y" ]; do
+    echo -ne "Enter course(s), separating multiple aliases with pipes"\
+    " (eg course1|courseOne)\n> "
+    read input
+    cc=$cc" $input"
+    echo -ne "Enter filename (eg courseFile1)\n> "
+    read input
+    cf=$cf" $input"
+    echo -ne "Add another course (y/n)?\n> "
+    read input
+  done
+  if [ "$cc" == "" ] || [ "$cf" == "" ]; then
+    echo "Could not initialize config"
+    exit 2
+  else
+    echo "courses=\"${cc/ /}\"" >$working_dir/config/cnotes.conf
+    echo "files=\"${cf/ /}\"" >>$working_dir/config/cnotes.conf
+    echo -ne "Done.\n$(cat $working_dir/config/cnotes.conf)\n"
+    exit 1
+  fi
+fi
+source $working_dir/config/cnotes.conf
+mkdir -p $working_dir/deleted
+cd $working_dir
+
+function error {
+  >&2 echo "$(basename $0): ""$*"
+}
+
+# Parameter pulling
+operation="$1"
+file="$2"
+args="$3"
+shift
+shift
+message="$*"
+shift
+addargs="$*"
+
+# Course selection for in/output file
+touch $targets
+
+if [ -z "$file" ]; then
+  target=
+else
+  if $(grep -q "\b$file\b" <<<$files); then
+    pos=$(echo $files |sed "s/\b$file\b.*/$file/g" |wc -w)
+    target=$(echo $targets |cut -d' ' -f$pos)
+  else
+    target=
+  fi
+fi
+
+# check that conf list sizes are the same
+nt=($targets)
+nf=($files)
+if [ ${#nf[*]} -ne ${#nt[*]} ]; then
+  error "Config error: files and targets are different lengths"
+  exit 1
+fi
+
+shortUsage="\
+Usage: $(basename $0) [-acCDfhlprRuz] [-o [-c]] [FILE] [ARGS]..."
+
+usage="\
+Command line organizer and note-taking program
+
+$shortUsage
+
+Options
+ -a, --add FILE LINE STR        Append STR to the first line containing
+                                LINE in FILE
+ -c, --clear FILE STR           Delete first line containing STR from FILE,
+                                temporarily storing it in
+                                working_dir/deleted/lastline
+ -D, --del FILE                 Delete contents of FILE, storing a backup in
+                                working_dir/deleted/
+ -f, --find [FILE] STR          Print FILE or all file lines containing STR
+ -p, --push FILE STR            Append STR to FILE
+ -l, --list [FILE]              Print FILE or print all files
+ -r, --rep FILE STR REPLACE     Replace first occurence of STR with REPLACE
+                                in FILE
+ -z, --repl FILE STR REPLACE    Like -r, but replaces the whole line
+ -R, --rest FILE                Swap deleted FILE file with one in
+                                working_dir/deleted
+ -o, --sort [-c]                Print tasks in chronological order if the have
+                                monthDay appended to them (eg nov15 or sep17). With
+                                -c supllied, prints this and next month calendars,
+                                highlighting tasks
+ -u, --undo FILE                Append most recently cleared line to FILE
+ -e, --edit FILE [EDITOR]       Edit FILE (EDITOR defaults to vi/vim)
+ -C, --conf                     Print config settings
+ -h, --help                     Show this menu
+"
+
+helpMessage() {
+  echo "$shortUsage"
+  echo "Type cnotes -h or cnotes --help for more info"
+}
+
+case $operation in
+  # -a, --add FILE LINE STR
+  # Append - Appends a string onto existing line in text file
+  --add | -a)
+    if ! [ -z "$args" ] && ! [ -z "$target" ] && ! [ -z "$addargs" ]; then
+      line=$(grep -m 1 $args $target)
+      if ! [ -z "$line" ]; then
+        sed -i s/"$line"/"$line$addargs"/g $target
+        echo Appended \'"$addargs"\' to $target: $line
+        bash $0 --list $file
+      else
+        error "Could not find '$args' in '$file'"
+      fi
+    else
+      case "" in
+        $file) error "FILE cannot be null" ;;
+        $target) error "Could not find file '$file'" ;;
+        $args) error "LINE cannot be null" ;;
+        $addargs) error "STR cannot be null" ;;
+      esac
+      helpMessage
+    fi
+  ;;
+
+  # -c, --clear FILE STR
+  # Clear - Removes a single line from FILE, determined by the first line
+  # containing STR
+  --clear | -c)
+    if ! [ -z "$message" ] && ! [ -z "$target" ]; then
+      line=$(grep -m1 "$message" $target) &&
+      echo $line >$working_dir/deleted/lastline &&
+      sed -i /^"$line"$/d $target &&
+      echo Deleted \'$line\' from $target &&
+      bash $0 --list $file ||
+      error "String '$message' not found in '$file'"
+    else
+      case "" in
+        $file) error "FILE cannot be null" ;;
+        $target) error "Could not find file '$file'" ;;
+        $message) error "STR cannot be null" ;;
+        "") error "Something went wrong" ;;
+      esac
+      helpMessage
+    fi
+  ;;
+
+  # Conf - Prints or modifies config settings
+  --conf | -C)
+    cf=($targets)
+    cc=($files)
+    spc=" "
+    max=0
+    for ((i = 0; i < ${#cc[*]}; i++)); do
+      if [ ${#cc[$i]} -gt $max ]; then
+        max=${#cc[$i]}
+      fi
+    done
+    while [ ${#spc} -lt $max ]; do
+      spc=$spc$spc
+    done
+    for ((i = 0; i < ${#cc[*]}; i++)); do
+      spaces=$(($max - ${#cc[$i]}))
+      echo "${spc:0:$spaces}${cc[$i]} -> ${cf[$i]}"
+    done
+  ;;
+
+  # -D, --del FILE
+  # Delete - Removes entire contents of input file and replaces with empty one.
+  # Stores file in deleted/ until next deletion operation.
+  --del | -D)
+    if ! [ -z "$target" ]; then
+      echo -n "Really clear $target? [y/N]: "
+      read confirm
+      if [ "$confirm" == "y" ] || [ "$confirm" == "Y" ]; then
+        mv $target deleted/
+        touch $target
+        echo Sent $target\
+        to $working_dir/deleted/$target
+        bash $0 --list
+      fi
+    else
+      case "" in
+        $file) error "FILE cannot be null" ;;
+        $target) error "Could not find file '$file'" ;;
+      esac
+      helpMessage
+    fi
+  ;;
+
+  # -f, --find [FILE] STR
+  # Find - Seaches files for matching string
+  --find | -f)
+    if ! [ -z "$file" ]; then
+      if [ -z "$args" ]; then
+        if ! $(grep -q "$file" $targets); then
+          error "Could not find str '$file'"
+        else
+            grep -H "$file" $targets
+        fi
+      else
+        if ! [ -z $target ]; then
+          grep "$args" $target || echo "Could not find '$args' in '$target'"
+        else
+          error "Could not find file '$file'"
+        fi
+      fi
+    else
+      case "" in
+        $file) error "STR cannot be null" ;;
+      esac
+      helpMessage
+    fi
+  ;;
+
+  # Help - Prints usage
+  --help | -h)
+    echo "$usage"
+  ;;
+
+  # -e, --edit FILE [EDITOR]
+  # edit FILE with EDITOR or vi/vim
+  --edit | -e)
+    editor=vim
+    if ! $(which vim &>/dev/null); then
+      editor=vi
+    fi
+    if [ -z "$target" ]; then
+      error "Could not find file '$file'"
+      exit 1
+    fi
+    if [ -n "$args" ]; then
+      if ! $(which "$args" &>/dev/null); then
+        echo Editor \"$args\" not found
+        exit 1
+      fi
+      editor="$args"
+    fi
+    $editor $target
+  ;;
+
+  # -l, --list [FILE]
+  # List - Prints contents of a file or of all files (with no params)
+  # Requires (optional) file to read from ($file => $target)
+  --list | -l)
+    if [ -z "$file" ]; then
+      for i in $targets; do
+        echo ">> $i"
+        cat $i
+        echo
+      done
+    else
+      if [ -f $working_dir/$target ]; then
+        echo ">> $target"
+        cat $target
+      else
+        error "File '$file' not found"
+      fi
+    fi
+  ;;
+
+  # -o, --sort [-c]
+  # Sort - Prints file lines containing dates for this and next month
+  --sort | -o | -O)
+    d=$(date +%-d)
+    m=$(date +%-m)
+    y=$(date +%Y)
+    nm=$(($m % 12 + 1))
+    ny=$(($y + ($m + 1) / 12))
+    short_m=$(date +%b)
+    short_m=${short_m,,}
+    short_nm=$(cal $nm $ny |grep -o [A-Z][a-z][a-z])
+    short_nm=${short_nm,,}
+    todo=$(echo -e '\033[07m')
+    today=$(echo -e '\033[04m\033[01m')
+    clr=$(echo -e '\033[0m')
+
+    if [ "$file" == "-c" ]; then
+      cal >thisMonth
+      cal $nm $ny >nextMonth
+      weekday=$(date +%a)
+      weekday=${weekday:0:2}
+      # kill exisitng calendar format
+      sed -i 's/[\x01-\x1F\x7F_]//g' thisMonth
+      sed -i "s/\b$d\b/$today$d$clr/g" thisMonth
+      sed -i "s/\b$weekday\b/$today$weekday$clr/g" thisMonth
+    fi
+    for filename in $targets; do
+      if [ -s $filename ]; then
+        echo "> $filename" >>tmp
+        cat $filename >>tmp
+      fi
+    done
+    grep -H "\b[MTWRFSU]$short_m[0-9]\{1,2\}\b" $targets >month
+    grep -H "\b[MTWRFSU]$short_nm[0-9]\{1,2\}\b" $targets >nMonth
+
+    fileGroup="\([^:]*\)"
+    dateGroup="\b\([MTWRFSU]\($short_m\|$short_nm\)\([0-9]\{1,2\}\)\)\b"
+    anyGroup="\(.*\)"
+    # reformat to daynumber:filename:task (\5:\1:\2\3\6)
+    # \1=filename, \2=leading, \3=date, \4=month, \5=day, \6=trailing
+    sed -i "s/${fileGroup}:${anyGroup}${dateGroup}${anyGroup}/\5:\1:\2\3\6/g" month nMonth
+
+    sort -V month -o month
+    echo '------' >>month
+    sort -V nMonth >> month
+    finput=thisMonth
+    while read line; do
+      if ! [[ $line =~ (.*):(.*):(.*) ]]; then
+        finput=nextMonth
+        continue
+      fi
+      daynumber=$((10#${BASH_REMATCH[1]} + 0))
+      filename=${BASH_REMATCH[2]}
+      task=${BASH_REMATCH[3]}
+      echo "> $filename"
+      echo $task
+      sed -i /"$task"/d tmp
+      if [ "$file" == "-c" ]; then
+        sed -i "s|\b$daynumber\b|$(echo -e $todo)$daynumber$(echo -e '\033[0m')|g" $finput
+      fi
+    done <month
+
+    if [ $operation == -O ]; then
+      echo
+      echo -n 'Unmateched:'
+
+      lastline=
+      while read line; do
+        if [[ $lastline =~ ^\>.* ]] && [[ $line =~ ^\>.* ]]; then
+          lastline=$line
+        else
+          echo $lastline
+          lastline=$line
+        fi
+      done <tmp
+      if [[ $lastline =~ ^\>.* ]] && [[ $line =~ ^\>.* ]]; then
+        lastline=$line
+      else
+        echo $lastline
+        lastline=$line
+      fi
+    fi
+
+    rm tmp month nMonth
+    if [ "$file" == "-c" ]; then
+      echo
+      cat thisMonth
+      cat nextMonth
+      rm thisMonth nextMonth
+    fi
+  ;;
+
+  # -p, --push FILE STR
+  # Push - Sends input to text file
+  --push | -p)
+    if ! [ -z "$target" ] && ! [ -z "$message" ] && ! [ -z "$file" ]; then
+      echo "$message" >> $target
+      echo Added \'$message\' to $target
+      bash $0 --list $file
+    else
+      case "" in
+        $file) error "FILE cannot be null" ;;
+        $target) error "Could not find file '$file'" ;;
+        $message) error "ARGS cannot be null" ;;
+      esac
+      helpMessage
+    fi
+  ;;
+
+  # -r|-z, --rep|--repl FILE STR REPLACE
+  # Replace - Replaces a single word or line in input file with another one
+  --rep | -r | -z | --repl)
+    if ! [ -z "$args" ] && ! [ -z  "$target" ] && ! [ -z "$addargs" ]; then
+      matched_str=$(grep -m 1 "$args" $target)
+      if ! [ -z "$matched_str" ]; then
+        echo $matched_str > $working_dir/deleted/lastline
+        if [ "$operation" == "rep" ] || [ "$operation" == "-r" ]; then
+          replacement=${matched_str/"$args"/"$addargs"}
+        else
+          replacement="$addargs"
+        fi
+        sed -i s/"$matched_str"/"$replacement"/g $target
+        echo Changed $target: \'$matched_str\' to \'$replacement\'
+        bash $0 --list $file
+      else
+        echo Unable to locate \'$args\'
+      fi
+    else
+      case "" in
+        $file) error "FILE cannot be null" ;;
+        $target) error "Could not find file '$file'" ;;
+        $args) error "STR cannot be null" ;;
+        $addargs) error "REPLACE cannot be null" ;;
+      esac
+      helpMessage
+    fi
+  ;;
+
+  # -R, --rest FILE
+  # Restore - Replaces text file in deleted/, swapping it with
+  # existing one in working directory
+  --rest | -R)
+    if ! [ -z "$target" ]; then
+      if [ -f $working_dir/deleted/$target ]; then
+        mv $working_dir/deleted/$target $working_dir/tmp
+        if [ -f $working_dir/$target ]; then
+          mv $working_dir/$target $working_dir/deleted/
+        fi
+        mv $working_dir/tmp $working_dir/$target
+        echo Restored $target
+        bash $0 --list $file
+      else
+        echo Could not restore: $target does not exist
+      fi
+    else
+      case "" in
+        $file) error "FILE cannot be null" ;;
+        $target) error "Could not find file '$file'" ;;
+      esac
+      helpMessage
+    fi
+  ;;
+
+  # -u, --undo FILE
+  # Undo - restores last deleted line to a file
+  --undo | -u)
+    if ! [ -z "$target" ]; then
+      if $(grep -q . $working_dir/deleted/lastline); then
+        cat $working_dir/deleted/lastline >> $target
+        echo Appended \'$(cat $working_dir/deleted/lastline)\'\
+        to $target
+        bash $0 --list $file
+      else
+        echo Cannot undo: last line does not exist
+      fi
+    else
+      case "" in
+        $file) error "FILE cannot be null" ;;
+        $target) error "Could not find file '$file'" ;;
+      esac
+      helpMessage
+    fi
+  ;;
+
+  # Default - Prints minimal usage information
+  *)
+    echo "$shortUsage"
+    echo "Type cnotes -h or cnotes --help for more info"
+  ;;
+esac
+

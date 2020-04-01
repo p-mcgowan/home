@@ -1,0 +1,15 @@
+#!/bin/bash
+
+dir=~/test.tmp
+
+touch $dir
+
+echo touched
+
+trap "rm $dir ;echo -e '\n'deleted ;exit" SIGHUP SIGTERM SIGINT
+
+for i in {10..1}; do
+  echo -n .
+  sleep 0.5
+done
+

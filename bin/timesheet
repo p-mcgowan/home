@@ -1,0 +1,580 @@
+#!/bin/bash
+
+
+usage="\
+Record time in and time out of work and keep a formatted log.
+
+Usage: $(basename $0) OPTION [DATE]
+
+Options
+  -i, --in [DATE]        Clock in for DATE
+  -o, --out [DATE]       Clock out for DATE
+  -F, [MONTH]            Recalculates totals for a sheet
+  -f, --fix              Recalculates totals for all sheets
+  -m, --summary [MONTH]  Prints a day-by-day summary for a given month
+  -p, --print [MONTH]    Print the timesheet for specified date
+  -P, --master           Print the master sheet for all months
+  -d, --day [DAY]        Print the total time for a day
+  -t, --time [DATE]      Show time since clock in
+  -s, --stat             Show totals and averages
+  -u, --undo             Erases last entry
+  --hard-fix             Recreates all files from master
+
+DATE is formatted as YYMMDD.HHSS
+DAY is formatted as YYMMDD
+MONTH is formatted as YYMM
+Anywhere from 0-11 format variables (including the period) can be supplied
+for DATE, and will replace the current time in the same format from right
+to left. Eg. If DATE was 01, the the SS im YYMMDD.HHSS for today's date is
+replaced. Some options support dates in day or month-first format, so 01
+would denote Jan or the first of the month, respectively. Formats DAY and
+MONTH behave in the same way, but start at 'dd' and 'mm', respectively.
+"
+
+# Default directories - change these depending on your prefs
+hardFixDir=~/tmp/work
+defaultDir=~/source/work
+
+# Constants
+readonly RED='\033[31m'
+readonly GREEN='\033[32m'
+readonly RESET='\033[0m'
+readonly CLRLINE='\033[2K\r'
+readonly hline='------------------------------'
+readonly hwline='=============================='
+# Set a string array with indeces lining up with months
+readonly months=("" Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec)
+
+# Turns YYMMDD.HHMM into YY-MM-DD HH:MM
+#
+gnuDate() {
+  echo "${1:0:2}-${1:2:2}-${1:4:2} ${1:~3:2}:${1:~1}"
+}
+
+# Takes two dates and gets the hours and minutes difference
+# Non-zero exit means negative date range
+#
+ddiff() {
+  d1=$(gnuDate $1)
+  d2=$(gnuDate $2)
+
+  # Get time in seconds since epoch and subtract
+  ds1=$(date -d"$d1" +%s)
+  ds2=$(date -d"$d2" +%s)
+  dd=$(($ds2 - $ds1))
+  if [ $dd -lt 0 ]; then
+    exit 1
+  fi
+
+  # Write to $delta in HH:MM format
+  printf -v delta "%02d:%02d" "$((dd / 3600))" "$((dd % 3600 / 60))"
+  echo $delta
+}
+
+# Get the total hours and minutes for a date
+#
+dayTotal() {
+  day=$(parseDate -D $theDate)
+  hours=0
+  minutes=0
+
+  # Regex to test for lines with dd: hh:mm
+  # Matches are stored in $BASH_REMATCH array
+  regex="([0-9]{2}):\ ([0-9]{2,}):([0-9]{2})"
+
+  # Read each line from file and add regex matches to totals
+  while read line; do
+    [[ $line =~ $regex ]] && \
+    if [ "${BASH_REMATCH[1]}" == "$day" ]; then
+      hours=$(($hours + 10#${BASH_REMATCH[2]}))
+      minutes=$(($minutes + 10#${BASH_REMATCH[3]}))
+    fi
+  done <$timesheet
+
+  # Format as hh:mm and return
+  minutes=$((60 * $hours + $minutes))
+  hours=$(($minutes / 60))
+  printf -v minutes "%02d" $(($minutes % 60))
+  echo $hours:$minutes
+}
+
+# Takes in yymmdd.hhmm and separates
+#
+parseDate() {
+  tDate=$theDate
+  while [ -n "$1" ]; do
+    case $1 in
+      # yymm[dd].hhmm
+      -D) echo ${tDate:4:2};;
+      # yy[mm]dd.hhmm
+      -M) echo ${tDate:2:2};;
+      # [yy]mmdd.hhmm
+      -Y) echo ${tDate:0:2};;
+      # yymmdd.[hh]mm
+      -h) echo ${tDate:~3:2};;
+      # yymmdd.hh[mm]
+      -m) echo ${tDate:~1};;
+      # yymmdd.[hhmm]
+      -t) echo ${tDate:~3};;
+      # yymmdd.[hh:mm]
+      -T) echo "${tDate:~3:2}:${tDate:~1}";;
+      # [yymm]dd.hhmm
+      -f) echo ${tDate:0:4};;
+      # Set date
+      *) tDate=$1;;
+    esac
+    shift
+  done
+}
+
+if [ $# == 0 ] || [ $1 == -h ]; then
+  echo "$usage"
+  exit 0
+fi
+
+# Set default date and replace from right to left
+# based on options
+tmp=$(date +%y%m%d.%H%M)
+case $1 in
+  -f | --fix) theDate=$tmp ;;
+  -d | --day) theDate=${tmp:0:6-${#2}}${2}.0000 ;;
+  -p | --print | -F | -m | --summary) theDate=${tmp:0:4-${#2}}${2}01.0000 ;;
+  *) theDate=${tmp:0:11-${#2}}$2 ;;
+esac
+# Bail if date is malformed
+if ! [[ $theDate =~ ^[0-9]{6}\.[0-9]{4}$ ]]; then
+  echo "Invalid date format '$theDate'"
+  exit 1
+fi
+
+# Set directories and file locations
+workingDir=$defaultDir
+if [ ! -z $3 ] && [ $3 == -s ]; then
+  workingDir=$hardFixDir
+fi
+
+master=$workingDir/master
+timesheet=$workingDir/$(parseDate -f)/hcts
+
+case $1 in
+  -i | --in)
+    if [ ! -f $master ]; then
+      mkdir -p $workingDir
+      touch $master
+    fi
+    # If timesheet does not exist, initialize it
+    if [ ! -f $timesheet ]; then
+      mkdir -p $workingDir/$(parseDate -f)
+      echo "$(parseDate -M $theDate) - Total: 0:00" >>$timesheet
+      echo "$hwline" >>$timesheet
+    fi
+
+    # Bail if last entry was a clock in
+    if [[ $(tail -n1 $master) =~ ^in\ :\ [0-9]{6}\.[0-9]{4}$ ]]; then
+      echo -e ${RED}You have not clocked out.${RESET}
+      exit 1
+    fi
+
+    # Write to timesheet. If third arg is -s, don't print msg
+    echo "in : $theDate" >>$timesheet
+    echo "in : $theDate" >>$master
+    if [ -z $3 ] || [ $3 != -s ]; then
+      echo -e ${GREEN}You have clocked in.${RESET}
+    fi
+  ;;
+
+  -o | --out)
+    # If master doesn't exist or last line is a clockout, bail. Else,
+    # store the date of clockin and set files
+    if [ ! -f $master ] ||\
+    ! [[ $(tail -n1 $master) =~ ^in\ :\ ([0-9]{6}\.[0-9]{4})$ ]]; then
+      echo -e ${RED}You have not clocked in.${RESET}
+      exit 1
+    else
+      inTime=${BASH_REMATCH[1]}
+      timesheet=$workingDir/$(parseDate $inTime -f)/hcts
+    fi
+
+    # Calculate hours
+    delta=$(ddiff $inTime $theDate)
+
+    # Catch non-zero exits from ddiff() and bail
+    if [ $? -ne 0 ]; then
+      echo -e ${RED}Error:${RESET}Clock out date is earlier than clockin date
+      exit 1
+    fi
+
+    # Update sheets
+    echo "out: $theDate" >>$master
+
+    echo "out: $theDate" >>$timesheet
+    echo "$(parseDate $inTime -D): $delta" >>$timesheet
+    echo "$hline" >>$timesheet
+
+    # Skip formatting if arg[3] == -s
+    if [ -z $3 ] || [ $3 != -s ]; then
+      mTotal=0
+      hTotal=0
+
+      # Regex to capture totals
+      regex="([0-9]+):([0-9]+)"
+
+      # Grab only the lines with totals
+      grep -o '[0-9]\+:\ [0-9]\+:[0-9]\+' $timesheet >~/tmp/timesheet.tmp
+      while read line; do
+        # Match the hours and minutes and add
+        [[ $line =~ $regex ]]
+        hTotal=$(($hTotal + 10#${BASH_REMATCH[1]}))
+        mTotal=$(($mTotal + 10#${BASH_REMATCH[2]}))
+      done <~/tmp/timesheet.tmp
+      rm ~/tmp/timesheet.tmp
+
+      # Format totals and replace in timesheet
+      mTotal=$((60 * 10#$hTotal + 10#$mTotal))
+      hTotal=$(($mTotal / 60))
+      printf -v mTotal "%02d" $(($mTotal % 60))
+
+      sed -i "s/Total:\ .*/Total:\ $hTotal:$mTotal/g" $timesheet
+
+      # Print total and today's sum (if applicable)
+      if [ "$delta" != "$(dayTotal)" ]; then
+        echo -e ${GREEN}You have clocked out.${RESET}" $delta ($(dayTotal))"
+      else
+        echo -e ${GREEN}You have clocked out.${RESET}" $delta"
+      fi
+    fi
+  ;;
+
+  -t | --time)
+    # Check if last entry was clockin and store regex match
+    if ! [[ $(tail -n1 $master) =~ ^in\ :\ ([0-9]{6}\.[0-9]{4})$ ]]; then
+      if [ "$(dayTotal)" != "0:00" ]; then
+        echo $(dayTotal) Today
+      else
+        echo -e ${RED}You have not clocked in.${RESET}
+      fi
+      exit 1
+    fi
+
+    inTime=${BASH_REMATCH[1]}
+
+    mins=0
+    hours=0
+
+    # Loop over today's times and sum the hours and minutes
+    for i in $(grep "$(parseDate $inTime -D):\ " $timesheet); do
+      [[ $i =~ ([0-9]{2}):([0-9]{2}) ]]
+      mins=$(($mins + 10#${BASH_REMATCH[2]}))
+      hours=$(($hours + 10#${BASH_REMATCH[1]}))
+    done
+
+    delta=$(ddiff $inTime $theDate)
+
+    # Separate current total and sum
+    dm=$(echo $delta |cut -d':' -f 2)
+    dh=$(echo $delta |cut -d':' -f 1)
+    mins=$((10#$mins + 10#$dm))
+    hours=$((10#$hours + 10#$dh))
+
+    # Format and write out
+    mins=$((60 * 10#$hours + 10#$mins))
+    hours=$(($mins / 60))
+    printf -v mins "%02d" $(($mins % 60))
+
+    echo -n "Current: $hours:$mins "
+    if [ "$(dayTotal)" != "0:00" ] && [ "$hours:$mins" != "$(dayTotal)" ]; then
+      echo "($(dayTotal) today)"
+    else
+      echo
+    fi
+  ;;
+
+  -f | --fix | -F)
+    # Set the list of files or file to recalculate sums for
+    if [ $1 == -F ]; then
+      files=$timesheet
+    else
+      files=$(find $workingDir -name hcts)
+    fi
+    regex="[0-9]{2}: ([0-9]{2}):([0-9]{2})"
+    # Iterate over file(s) lines
+    for file in $files; do
+      mTotal=0
+      hTotal=0
+      grep -o '[0-9]\+:\ [0-9]\+:[0-9]\+' $file >~/tmp/timesheet.tmp
+      while read line; do
+        [[ $line =~ $regex ]]
+        hTotal=$(($hTotal + 10#${BASH_REMATCH[1]}))
+        mTotal=$(($mTotal + 10#${BASH_REMATCH[2]}))
+      done <~/tmp/timesheet.tmp
+      rm ~/tmp/timesheet.tmp
+
+      mTotal=$((60 * 10#$hTotal + 10#$mTotal))
+      hTotal=$(($mTotal / 60))
+      printf -v mTotal "%02d" $(($mTotal % 60))
+
+      # Replace old sum with new one
+      sed -i "s/Total:\ .*/Total:\ $hTotal:$mTotal/g" $file
+    done
+  ;;
+
+  -s | --stat)
+    # Get a list of all current timesheets
+    files=($(find $workingDir -name hcts))
+
+    hTotal=0
+    mTotal=0
+    dTotal=0
+    hMo=0
+    mMo=0
+    dMo=0
+
+    regex="[0-9]{2}:\ ([0-9]{2}):([0-9]{2})"
+    for file in ${files[*]}; do
+      # Iterate files and pull totals
+      grep -o '^[0-9]\{2\}:.*' $file >~/tmp/timesheet.tmp
+      day=0
+      while read line; do
+        # Match totals for the same day (ie clocking in/out 2+ times
+        # in one day
+        cDay=${line:0:2}
+        if [ $cDay != $day ]; then
+          day=$cDay
+          ((dTotal++))
+          ((dMo++))
+        fi
+        # Sum daily totals
+        [[ $line =~ $regex ]]
+        hours=${BASH_REMATCH[1]-0}
+        mins=${BASH_REMATCH[2]-0}
+        hMo=$((10#$hours + $hMo))
+        mMo=$((10#$mins + $mMo))
+      done <~/tmp/timesheet.tmp
+
+      # Format totals for each day and write out
+      mMo=$((60 * $hMo + $mMo))
+      hMo=$(($mMo / 60))
+      printf -v mMo "%02d" $(($mMo % 60))
+      tmins=$((60 * $hMo + $mMo))
+      avgMins=$(($tmins / $dMo))
+      avgHours=$((avgMins / 60))
+      printf -v avgHours "%02d" $(($avgMins / 60))
+      printf -v avgMins "%02d" $(($avgMins % 60))
+
+      # Get the folder of the current file to index month array
+      mo=$(basename $(dirname $file))
+      echo -e "${months[10#${mo:~1}]} ${mo:0:2}:"\
+              "\n  Total: $hMo:$mMo / $dMo days"\
+              "\n  Avg  : $avgHours:$avgMins\n"
+      hTotal=$(($hTotal + 10#$hMo))
+      mMo=$(($mTotal + 10#$mMo))
+
+      hMo=0
+      mMo=0
+      dMo=0
+    done
+
+    # Print totals for all months
+    mTotal=$((60 * $hTotal + $mTotal))
+    hTotal=$(($mTotal / 60))
+    printf -v mTotal "%02d" $(($mTotal % 60))
+    tmins=$((60 * $hTotal + $mTotal))
+    avgMins=$(($tmins / $dTotal))
+    printf -v avgHours "%02d" $(($avgMins / 60))
+    printf -v avgMins "%02d" $(($avgMins % 60))
+
+    echo -e "----------------"\
+        "\n""Total: $hTotal:$mTotal / $dTotal"\
+        "\n""Avg  : $avgHours:$avgMins\n"
+    rm ~/tmp/timesheet.tmp
+  ;;
+
+  -d | --day)
+    # Print summary for a given day
+    total=$(dayTotal)
+    if [ "$total" == "0:00" ]; then
+      echo "No data for ${months[10#$(parseDate -M)]} $(parseDate -D)"
+    else
+      echo "${months[10#$(parseDate -M)]} $(parseDate -D): $(dayTotal)"
+    fi
+  ;;
+
+  -p | --print | -P)
+    # Print timesheets or master
+    if [ "$1" == "-P" ] && [ -f $master ]; then
+      cat $master
+      exit 0
+    fi
+    if [ ! -f $timesheet ]; then
+      echo No data for this month
+      exit 0
+    fi
+    cat $timesheet
+  ;;
+
+  -m | --summary)
+    if [ ! -f $timesheet ]; then
+      echo No data for this month
+      exit 0
+    fi
+    # Read lines with day totals
+    grep -o '^[0-9]\{2\}:.*' $timesheet >~/tmp/timesheet.tmp
+    day=0
+    hours=0
+    mins=0
+    dTotal=0
+    mTotal=0
+    hTotal=0
+    regex="[0-9]{2}:\ ([0-9]{2}):([0-9]{2})"
+    # Print current timesheet folder
+    echo "${months[10#${theDate:2:2}]} '${theDate:0:2}:"
+
+    # Read day totals and sum on each individual day
+    while read line; do
+      cDay=${line:0:2}
+      if [ $cDay != $day ]; then
+        if [ $day -ne 0 ]; then
+          mins=$((60 * $hours + $mins))
+          hours=$(($mins / 60))
+          printf -v mins "%02d" $(($mins % 60))
+          echo $hours:$mins
+          hours=0
+          mins=0
+        fi
+        ((dTotal++))
+        day=$cDay
+        echo -n "  $day: "
+      fi
+      [[ $line =~ $regex ]]
+      hours=$(($hours + 10#${BASH_REMATCH[1]-0}))
+      mins=$(($mins + 10#${BASH_REMATCH[2]-0}))
+      hTotal=$(($hTotal + 10#${BASH_REMATCH[1]-0}))
+      mTotal=$(($mTotal + 10#${BASH_REMATCH[2]-0}))
+    done <~/tmp/timesheet.tmp
+    printf -v mins "%02d" $mins
+    echo $hours:$mins
+
+    # Print totals
+    mTotal=$((60 * 10#${hTotal} + 10#${mTotal}))
+    hTotal=$(($mTotal / 60))
+    printf -v mTotal "%02d" $(($mTotal % 60))
+    tmins=$((60 * 10#${hTotal} + 10#${mTotal}))
+    avgMins=$((10#${tmins} / 10#${dTotal}))
+    printf -v avgHours "%02d" $(($avgMins / 60))
+    printf -v avgMins "%02d" $(($avgMins % 60))
+    echo -e "Total:"\
+            "\n  Days: $dTotal"\
+            "\n  Time: $hTotal:$mTotal"\
+            "\n  Avg: $avgHours:$avgMins"
+
+    rm ~/tmp/timesheet.tmp
+  ;;
+
+  --hard-fix)
+    # Read from master and re-create all timesheets
+    if [ ! -f $master ]; then
+      echo "Could not find $master"
+      exit 0
+    fi
+
+    rm -rf $hardFixDir
+
+    # Count lines in master (for progress)
+    nLines=$(wc -l $master |cut -d' ' -f1)
+    # Make a 'spinning wheel' array
+    declare -a io=('\' '|' '/' '-')
+    ioIndex=0
+    i=0
+    # Set width of progress bar
+    if [ -z $COLUMNS ] || [ $COLUMNS -lt 20 ]; then
+      length=$((90 - 18))
+    else
+      length=$(($COLUMNS - 18))
+    fi
+
+    rm -rf $hardFixDir
+    # If any command pipe fails, propogate failure (handles ctrl-c event)
+    set -o pipefail
+    {
+      while read first; do
+        # read 2 lines and clock in/out without messages
+        read second
+        timesheet -i ${first:~11} -s || exit 1
+        if [ ! -z "$second" ]; then
+          timesheet -o ${second:~11} -s || exit 1
+        fi
+        # Calculate the percentage and print out a bar accordingly
+        ((ioIndex++))
+        i=$(($i + 2))
+        percent=$(($i * 10000 / $nLines))
+        progress="$(($percent / 100 * $length / 100))"
+        if [ $progress == 0 ]; then
+          progress=1
+        fi
+        printf -v percent "%03s.%02d %%" "$(($percent / 100))" "$(($percent % 100))"
+        # Write to the variable and clear the line before printing
+        str=" ${io[$(($ioIndex % 4))]}  |$(printf "%.0s=" $(seq 1 $progress))>$(printf "%*s" $(($length - $progress)))|  ""$percent"
+        echo -ne ${CLRLINE}"$str"
+      done <$defaultDir/master
+    }
+    # Calculate tatals
+    timesheet -f 0 -s
+    # Make a backup and replace old files
+    rm -rf $defaultDir-bkp
+    cp -r $defaultDir $defaultDir-bkp
+    ls -1 $hardFixDir |while read f; do
+      rm -r $defaultDir/$f
+      cp -r $hardFixDir/$f $defaultDir/
+    done
+    rm -r $hardFixDir
+    echo -ne '\n'${GREEN}Done'\n'${RESET}
+  ;;
+
+  -u | --undo)
+    if [ ! -f $master ]; then
+      echo "Nothing to undo."
+      exit 0
+    fi
+
+    # Check that entry is valid and save the date
+    line=$(tail -n1 $master)
+    regex="^[inout ]{3}:\ ([0-9]{6}\.[0-9]{4})$"
+    [[ "$line" =~ $regex ]] || {
+      echo "Malformed timesheet entry: $line"
+      exit 1
+    }
+    theDate=${BASH_REMATCH[1]}
+    timesheet=$workingDir/$(parseDate -f)/hcts
+
+    # Set number of lines to delete/print
+    case ${line:0:3} in
+      'out') nLines=3;;
+      'in ') nLines=1;;
+    esac
+
+    # Print last $nLines lines from timesheet
+    tail -n$nLines $timesheet
+    echo -e "\nReally delete this entry?"
+    echo -ne ${RED}This cannot be undone${RESET}" [y/N]? "
+    read answer
+    # Only continue if lowercase answer is y or yes
+    case ${answer,,} in
+      y | yes);;
+      *) exit 0;;
+    esac
+    for ((i = 0; i < $nLines; i++)); do
+      # Delete last line, repeat nLines times
+      sed -i '$ d' $timesheet
+    done
+    sed -i '$ d' $master
+    # Recalculate totals for the month
+    timesheet -F $(parseDate -f)
+  ;;
+
+  *)
+    # Catch all
+    echo "Invalid option -- '$1'"
+    echo "$usage"
+  ;;
+esac
+

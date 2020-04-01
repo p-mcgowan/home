@@ -1,0 +1,8 @@
+#! /bin/bash
+
+if [ "$1" == "-c" ]; then
+  g++ -Wall $1 -o $2
+else
+  g++ -std=c++11 -Wall $1 -o $2
+fi
+

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+case $1 in
+  -v) 
+    shift
+    /home/pat/sublimeText/sublime_text_3/sublime_text $* &
+  ;;
+  -2)
+    shift
+    /home/pat/sublimeText/sublime_text_2/sublime_text $* &> /dev/null &
+  ;;
+  *)
+    /home/pat/sublimeText/sublime_text_3/sublime_text $* &
+    #/home/pat/sublimeText/sublime_text_3/sublime_text $* &> /dev/null &
+  ;;
+esac

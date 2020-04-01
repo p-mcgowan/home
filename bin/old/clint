@@ -1,0 +1,47 @@
+#!/bin/bash
+
+
+usage="Usage: $(basename $0) [-r] [-d dir] files
+  Options:
+  -r      filter readability
+  -d DIR  test all files in directory DIR
+  -h      show this message"
+cpp_path="/home/pat"
+cpp_flags=""
+cpp_files=""
+shopt -s extglob
+valid_extensions='+('$(grep -m 1 "valid_extensions" ~/cpplint.py |cut -d"'" -f2- |sed 's/[^a-z,]//g' |sed 's/,/|/g')')'
+#_valid_extensions = set(['cc', 'h', 'cpp', 'cu', 'cuh', 'c'])
+
+if [ "$*" == "" ]; then
+  echo "No input files"
+  exit 2
+fi
+while [ ! -z "$1" ]; do
+  case $1 in
+    -r)
+      cpp_flags=$cpp_flags" --filter=-readability/streams *.[ch]*"
+      shift
+    ;;
+    -d)
+      shift
+      cpp_flags=$cpp_flags" --root=$(dirname $1)"
+      shift
+    ;;
+    *.$valid_extensions)
+      cpp_files=$cpp_files" $1"
+      shift
+    ;;
+    -h)
+      echo "$usage"
+      exit 1
+    ;;
+    *)
+      echo -e "Usage: $(basename $0) [OPTIONS] files"\
+      "\ntype $(basename $0) -h for more info"
+      exit 1
+    ;;
+  esac
+done
+
+$cpp_path/cpplint.py $cpp_flags $cpp_files

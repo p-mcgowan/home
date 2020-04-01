@@ -1,0 +1,39 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+PCRFTLOCAL="pat@192.168.0.20"
+PCRFTREMOTE="pat@24.87.158.138"
+declare -A opts
+
+cd ~/xfers/
+
+parsed=$(echo $* |grep -o '\-[^ ]*' |sed 's/[-\ ]//g')
+if [ ${#parsed} == 0 ]; then
+  echo "$(basename $0) [l|r] [s|g]"
+  exit 1
+fi
+
+for (( i=0; i<${#parsed}; i++ )); do
+  opts[${parsed:$i:1}]=true
+done
+
+if test "${opts['r']+isset}"; then
+  ip=$PCRFTREMOTE
+fi
+if test "${opts['l']+isset}"; then
+  ip=$PCRFTLOCAL
+fi
+if test "${opts['s']+isset}"; then
+  src="trek"
+  dst="$ip:~/xfers/"
+fi
+if test "${opts['g']+isset}"; then
+  src="$ip:~/xfers/trek"
+  dst="."
+fi
+
+if [ -z $ip ] || [ -z $src ] || [ -z $dst ]; then
+  echo "$(basename $0) [l|r] [s|g]"
+  exit 1
+fi
+
+rsync -avzP $src $dst

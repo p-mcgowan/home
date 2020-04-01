@@ -1,0 +1,16 @@
+#!/bin/bash
+
+if [ $# == 2 ] && [[ "$1$2" =~ ^[0-9a-fA-F]+$ ]]; then
+  hexa=$(conv -h -d $1)
+  hexb=$(conv -h -d $2)
+  dech=$hexb
+  decl=$hexa
+  if [ $hexa -lt $hexb ]; then
+    dech=$hexa
+    decl=$hexb
+  fi
+  conv -d -h $(($(($dech - $decl)) / 2 * -1 + $dech))
+else
+  echo "Usage: $(basename $0) HEXA HEXB"
+  exit 1
+fi

@@ -1,0 +1,8 @@
+export HOMEIP="24.84.193.107"
+export PATCRAFT='pat@24.87.158.138'
+export PATCRAFTL='pat@192.168.0.15'
+export DEBBIE="pat@$HOMEIP"
+export DEBBIEL='pat@192.168.0.21'
+export HOMEBOTL='pat@192.168.0.14'
+
+export AASTAGING='root@167.99.53.214'

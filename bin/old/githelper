@@ -1,0 +1,345 @@
+#!/bin/bash
+
+#repositories="~/ecerepos/ ~/gitrepo/"
+editor="sub -n"
+rebuildRoot=~/source/rebuild
+logfile=~/tmp/gpull.log
+
+# http://stackoverflow.com/questions/1994463/how-to-cherry-pick-a-range-of-commits-and-merge-into-another-branch
+# git cherry-pick A^..B
+
+shortusage="\
+Usage: $(basename $0) OPTIONS..."
+
+helpusage="\
+$(basename $0) will make all your git terminal dreams come true
+$shortusage
+  -s,  --commits [MODE]         Shows staged commits.
+                                MODE:
+                                  d, diff     Shows commits in diff format
+  -c,  --clean                  Shows results of various 'git clear' options
+  -t,  --track BRANCH           Tracks a remote branch
+  -u,  --update [REPOS]         Calls checkout and pull on local repositories
+                                Can hardcode or pass REPOS in as arguments
+  -l,  --log [MODE] [BRANCH [FILE]]
+                                Prints detailed repo history
+                                MODE:
+                                  s, short    Print minimal commit info
+                                  d, diff     Print minimal diff info
+                                  b, branch   Print detailed info for BRANCH
+                                  f, file     Print diff info for FILE
+  -e,  --edit [EDITOR]          Opens conflicting merger files with EDITOR
+  -m,  --merge [SRC [DST]]      Merge SRC into DST (or current branch)
+  -r,  --rebase [REPO]          Updates forked repo with upstream original
+  -k,  --kill BRANCH            Shortcut for 'git branch -d BRANCH' and 'git
+                                push origin :BRANCH'
+  -h,  --help                   Show this menu
+       --pull [BRANCH | CLEAN]  Pull from BRANCH (or current), bundle, migrate
+                                and touch restart.txt. If CLEAN is provided,
+                                will bower cache clean and bower update instead
+                                of pulling
+       --push [BRANCH | CLEAN]  Same as '--pull', but does not bundle/migrate/
+                                restart
+       --rename OLD_BRANCH NEW_BRANCH
+                                Rename OLD_BRANCH and update upstream
+       --how                    Print the actual commands used
+"
+
+commands='
+  -s,  --commits [MODE]
+    d, diff
+        git diff origin/master..HEAD;;
+    *
+        git log origin/master..HEAD;;
+
+  -c,  --clean
+      git clean -f -n
+      git clean -f -d -n
+      git clean -f -X -n
+      git clean -f -x -n
+
+  -t,  --track branch
+      git fetch --prune
+      git checkout --track "$branch"
+
+  -u,  --update [repo]
+      for repo in $(find $repositories -maxdepth 1 -mindepth 1 -type d |grep -v .git); do
+      cd $repo
+      git checkout master
+      git pull origin master
+      done
+
+  -l,  --log [MODE]
+      s, short
+          git log --pretty=format:'"'"'%h %ad | %s%d [%an]'"'"' --graph --date=short
+      d, diff
+          git log -p
+      b, branch
+          git log -p --stat --follow $3
+      f, file git diff ${4-master} -- $3
+      *
+          git log -p --stat --graph;;
+
+  -e , --edit [EDITOR]
+      if [ ! -z "$2" ]; then
+        editor="$2"
+      fi
+      toedit=$(git diff --name-only --diff-filter=U)
+      $editor $toedit
+
+  -m, --merge [SRC [DEST]]
+      case "$3" in
+        "") git merge $2;;
+        *) git merge $2 $3;;
+      esac
+
+  -r,  --rebase
+      git fetch upstream
+      git checkout master
+      git rebase upstream/master
+
+  --pull [CLEAN]
+    TIMEFORMAT="%R";
+    branch=${2-$(git branch |grep '"'"'\*'"'"' |sed '"'"'s/\*\ //g'"'"')}
+    if [ "$3" == "clean" ] || [ "$2" == "clean" ]; then
+      bower cache clean
+      bower update
+      bower install
+      exit 0
+    fi
+    cd $rebuildRoot
+    git commit db/schema -m "schema" &>/dev/null
+    git fetch -p
+    echo -e '"'"'Pulling from origin '"'"'$branch...
+    rm $logfile
+    git pull origin $branch |tee -a $logfile 2>&1 || exit 1
+    echo -en '"'"'Bundle installing...'"'"' |tee -a $logfile
+    nTime=($( { time bundle install >>$logfile 2>&1; } 2>&1))
+    if ! $(grep -qi error $logfile); then
+      echo -e "\033[32m good\033[0m ${nTime}s"
+    else
+      echo -e "\033[31m error\033[0m ${nTime}s"
+      grep -i error $logfile
+      exit 1
+    fi
+    echo -en '"'"'Migrating db...'"'"' |tee -a $logfile
+    nTime=($( { time rake db:migrate >>$logfile 2>&1; } 2>&1))
+    if ! $(grep -qi error $logfile); then
+      echo -e "\033[32m good\033[0m ${nTime}s"
+    else
+      echo -e "\033[31m error\033[0m ${nTime}s"
+      grep -i error $logfile
+      exit 1
+    fi
+    echo -e '"'"'Stamping tmp/restart.txt...'"'"'  |tee -a $logfile
+    touch $rebuildRoot/tmp/restart.txt
+
+  --push [CLEAN]
+    branch=${2-$(git branch |grep '"'"'\*'"'"' |sed '"'"'s/\*\ //g'"'"')}
+    if [ "$3" == "clean" ] || [ "$2" == "clean" ]; then
+      bower cache clean
+      bower update
+      bower install
+      exit 0
+    fi
+    echo Pushing to origin $branch...
+    git push origin $branch
+
+  --rename
+    if [ -z "$2" ] || [ -z "$3" ]; then
+      echo "$usage"
+      exit 1
+    fi
+    git checkout -b "$2" && git branch -m "$3" && git push origin :"$2" "$3" && git push origin -u "$3"
+'
+
+# # If unbuffer installed, tee output will be colourized
+# if [ -z $(which unbuffer) ]; then
+#   colour=true
+# fi
+
+bundleMigrate() {
+  echo -n 'Reallocating flux matrices...'
+  nTime=($( { time bundle install >>$logfile 2>&1; } 2>&1))
+  if ! $(grep -qi error $logfile); then
+    echo -e "\033[32m good\033[0m ${nTime}s"
+    echo -e 'Bundle installing...'"\033[32m good\033[0m ${nTime}s" >> $logfile
+  else
+    echo -e "\033[31m error\033[0m ${nTime}s"
+    echo -e 'Bundle installing...'"\033[31m error\033[0m ${nTime}s" >> $logfile
+    grep -i error $logfile
+    exit 1
+  fi
+  echo -n 'Calibrating phase delimiters...'
+  nTime=($( { time rake db:migrate >>$logfile 2>&1; } 2>&1))
+  if ! $(grep -qi error $logfile); then
+    echo -e "\033[32m good\033[0m ${nTime}s"
+    echo -e 'Migrating db...'"\033[32m good\033[0m ${nTime}s" >> $logfile
+  else
+    echo -e "\033[31m error\033[0m ${nTime}s"
+    echo -e 'Migrating db...'"\033[31m error\033[0m ${nTime}s" >> $logfile
+    grep -i error $logfile
+    exit 1
+  fi
+  echo 'Synchronizing eigenvector normals...'  |tee -a $logfile
+  touch $rebuildRoot/tmp/restart.txt
+}
+
+case $1 in
+  -s | --commits)
+      case $2 in
+        d | diff) git diff origin/master..HEAD;;
+        *) git log origin/master..HEAD;;
+      esac
+    ;;
+  -c | --clean)
+    answer=
+    echo "git clean -f -n (untracked):"
+    git clean -f -n &&
+    echo "git clean -f -d -n (directories):"
+    git clean -f -d -n &&
+    echo "git clean -f -X -n (ignored):"
+    git clean -f -X -n &&
+    echo "git clean -f -x -n (ignored and non-ignored):"
+    git clean -f -x -n &&
+
+    echo -e "Options are:\n" \
+            "-d directories\n" \
+            "-X ignored\n" \
+            "-x ignored and non-ignored\n" \
+            "Always use \`-n' or \`--dry-run' to see deletions first.\n" \
+            '\n\033[01;31mDANGER:\033[00m This is dangerous... These operations cannot be undone.\n' \
+            "\nComplete above deletions [yes/NO]?" &&
+    read answer
+
+    if [ "$answer" == "yes" ] || [ "$answer" == "YES" ]; then
+        git clean -f
+        git clean -f -d
+        git clean -f -X
+        git clean -f -x
+    fi
+  ;;
+  -t | --track)
+    shift
+    if [ "$*" == "" ]; then
+      echo Enter a branch to track \(eg origin/someonesBranch\)\:
+      branch=
+      read branch
+      if [ "$branch" == "" ]; then
+        echo Requires a branch... && exit 1
+      fi
+      git fetch --prune
+      git checkout --track "$branch"
+    else
+      git fetch --prune
+      git checkout --track "$*"
+    fi
+  ;;
+  -u | --update)
+    echo -e '\033[01;33mWARNING:\033[00m This is currently broken -- just ignore for now...'
+    exit 0
+    shift
+    if [ "$*" != "" ]; then
+      $repositories="$*"
+    fi
+    for repo in $(find $repositories -maxdepth 1 -mindepth 1 -type d |grep -v .git); do
+      echo "Updating $repo -> origin master"
+      cd $repo
+      git checkout master
+      git pull origin master
+    done
+  ;;
+  -l | --log)
+    if [ $(tput colors) ]; then
+      colour="--color"
+    fi
+    case $2 in
+      s | short) git log --pretty=format:'%h %ad | %s%d [%an]' $colour --graph --date=short;;
+      d | diff) git log -p;;
+      b | branch) git log -p --stat --follow $3;;
+      f | file) git diff ${4-master} -- $3;;
+      *) git log -p --stat --graph;;
+    esac
+  ;;
+  -e | --edit)
+    if [ ! -z "$2" ]; then
+      editor="$2"
+    fi
+    toedit=$(git diff --name-only --diff-filter=U)
+    $editor $toedit
+  ;;
+  -m | --merge)
+    case "$3" in
+      "") git merge $2;;
+      *) git merge $2 $3;;
+    esac
+  ;;
+  -h | --help)
+    echo  "$helpusage";;
+  -r | --rebase)
+    echo -e "Enter upstream repository (eg. git@github.com:upstream/repo.git) or enter to update existing upstream:"
+    repo=
+    read repo
+    [ "$repo" == "" ] || git remote add upstream $repo
+    git fetch upstream &&
+    git checkout master &&
+    git rebase upstream/master ||
+    echo -e "\nSomething went terribly wrong...\nPerhaps a push is necessary (git push -f origin master)?"
+  ;;
+  --rename)
+    if [ -z "$2" ] || [ -z "$3" ]; then
+      echo "$usage"
+      exit 1
+    fi
+    git checkout -b "$2" && git branch -m "$3" && git push origin :"$2" "$3" && git push origin -u "$3"
+  ;;
+  --how)
+    echo "$commands";;
+  -k | --kill)
+    branch=${2-$(git branch |grep '\*' |sed 's/\*\ //g')}
+    git branch -d $branch && git push origin :$branch
+  ;;
+
+  # Merged from gitup
+  --pull)
+    TIMEFORMAT="%R";
+    branch=${2-$(git branch |grep '\*' |sed 's/\*\ //g')}
+    if [ "$2" == "clean" ]; then
+      bower cache clean
+      bower update
+      bower install
+      exit 0
+    elif [ "$2" == "db" ]; then
+      bundleMigrate
+      exit 0
+    fi
+    # git commit db/schema -m "schema" &>/dev/null
+    # git fetch -p
+    if [ ! -z $2 ] && [ "$branch" != "$2" ]; then
+      echo "Fetching origin $branch:$branch"
+      git fetch origin $branch:$branch
+    fi
+    echo 'Pulling from origin '$branch... |tee $logfile
+    git pull origin $branch || failed=true |tee -a $logfile 2>&1
+    if $(grep -q 'Already up-to-date' $logfile); then
+      exit 0
+    fi
+    if ! $failed; then
+      bundleMigrate
+    fi
+  ;;
+  --push)
+    branch=${2-$(git branch |grep '\*' |sed 's/\*\ //g')}
+    if [ "$3" == "clean" ] || [ "$2" == "clean" ]; then
+      bower cache clean
+      bower update
+      bower install
+      exit 0
+    fi
+    git commit db/schema -m "schema" &>/dev/null
+    echo Pushing to origin $branch...
+    git push origin $branch
+  ;;
+  *) echo -e "$helpusage";;
+esac
+

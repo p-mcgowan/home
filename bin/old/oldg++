@@ -1,0 +1,32 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+usage="\
+Usage: $(basename $0) [OPTIONS] FILES [-o OUTPUT]
+      --libs  use library settings found in file.stdin
+  -h, --help  show this menu
+~/c4droid/com.n0n3m4.droidc/files/gcc/bin/arm-linux-androideabi-g++ INPUT -lm -ldl -llog -lz -std=c++11 -Wfatal-errors   -lncurses -I~/c4droid/com.n0n3m4.droidc/files/gcc/arm-linux-androideabi/include/ncurses -Wl,-allow-shlib-undefined
+"
+
+LIBS=
+
+if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+  echo "$usage"
+  exit 1
+elif [ "$1" == "--libs" ]; then
+  LIBS="-lm -ldl -llog -lz -std=c++11 -Wfatal-errors -lncurses -I~/c4droid/com.n0n3m4.droidc/files/gcc/arm-linux-androideabi/include/ncurses -Wl,-allow-shlib-undefined"
+  shift
+fi
+
+GPP=~/c4droid/com.n0n3m4.droidc/files/gcc/bin/arm-linux-androideabi-g++
+#GCC=~/c4droid/com.n0n3m4.droidc/files/gcc/bin/arm-linux-androideabi-gcc
+
+$GPP $LIBS $*
+#$GCC $LIBS $*
+exit $?
+
+# droidc/files/file.stdin:
+# cd /data/data/com.n0n3m4.droidc/files/gcc/tmpdir
+# export TEMP=/data/data/com.n0n3m4.droidc/files/gcc/tmpdir
+# /data/data/com.n0n3m4.droidc/files/gcc/bin/arm-linux-androideabi-g++ /data/data/com.n0n3m4.droidc/files/temp.c -lm -ldl -llog -lz -I"/storage/emulated/0/.cfiles/intconv" -std=c++11 -Wfatal-errors   -lncurses -I/data/data/com.n0n3m4.droidc/files/gcc/arm-linux-androideabi/include/ncurses -Wl,-allow-shlib-undefined -o /data/data/com.n0n3m4.droidc/files/temp
+# echo "errorcode:$?"
+# exit

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+echo Good $(date +%a) morning $(whoami)
+
+# Capture and ignore all script output
+# fd 3 and 4 are stderr and out (resp)
+exec 3>&1 4>&2 >/dev/null 2>&1
+
+echo Launching github >&4
+google -nb hcgh
+echo Launching mail >&4
+google -b mail
+echo Launching gmail >&4
+google -b gmail
+echo Launching Slack >&4
+slack
+#google -b basecamp
+#google -b gantt
+
