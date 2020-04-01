@@ -1,0 +1,5 @@
+#!/bin/bash
+telnet localhost 8081
+sleep 1
+xdotool type 'tpass'
+xdotool key Return

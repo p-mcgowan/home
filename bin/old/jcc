@@ -1,0 +1,64 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+function build(){
+  dname=${1/src\//}
+  class_name=$(echo $1 |sed 's/.*\/\(.*\)\..*/\1/g')
+
+  rm -rf build/*
+  rm -rf dist/*
+  mkdir -p dist build logs
+  echo "Compiling $dname..."
+  cd src
+  javac -verbose -cp ../libs/demolib.jar -d ../build/ $dname 2>&1|tee ../logs/javac.log
+  if 0 && $(tail -n1 ../logs/javac.log |grep -qi error); then
+    echo Error compiling. See logs/javac.log for details
+    exit 1
+  fi
+  echo -e "\nBuilding $class_name.jar..."
+  cd ../build
+  jar -v ../dist/$class_name.jar org 2>&1|tee ../logs/jar.log
+  if $(tail -n1 ../logs/jar.log |grep -qi error); then
+    echo Error building. See logs/jar.log for details
+    exit 1
+  fi
+  cd ..
+  echo -e "\nRunning proguard..."
+  proguard @proguard.cfg 2>&1|tee logs/proguard.log
+  if $(tail -n1 logs/proguard.log |grep -iq error); then
+    echo Error proguarding. See logs/proguard.log for details
+    exit 1
+  fi
+  echo -e "\nConverting to dex..."
+  cd dist
+  dx --dex --verbose --output=./$class_name.dex.jar ./$class_name.pro.jar 2>&1|tee ../logs/dex.log
+  if $(tail -n1 ../logs/dex.log |grep -iq error); then
+    echo Error dexing. See logs/dex.log for details
+    exit 1
+  fi
+}
+
+function run() {
+  dname=$(echo ${1/src\//} |sed 's/\//\./g' |sed 's/\.java//g')
+  class_name=$(echo $1 |sed 's/.*\/\(.*\)\..*/\1/g')
+  shift
+  java -jar ./dist/$class_name.dex.jar:./libs/demolib.dex.jar $dname $*
+}
+
+if [ ! -d src ]; then
+  echo Make sure you are in root of app
+  exit 1
+fi
+
+usage="\
+Quick java app build and run
+$(basename $0) -b|-r classpath [params]
+  -b  build, where classpath points to the target class
+      Output is named by the object pointed to by classpath
+  -r  run, where classpath is the name of the app and extra parameters can be
+      passed to the program
+"
+case $1 in
+  -b) shift && build $* ;;
+  -r) shift && run $* ;;
+  *) echo "$usage";;
+esac

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [ -z $1 ] || [ $1 == -h ]; then
+  echo usage: $(basename $0) outputfile
+  exit 1
+fi
+
+xclip -selection clipboard -t image/png -o >$1

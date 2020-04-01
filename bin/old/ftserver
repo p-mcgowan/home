@@ -1,0 +1,3 @@
+#! /bin/bash
+cd ~/ftbserver &&
+java -Xms512M -Xmx1G -jar ftbserver.jar nogui

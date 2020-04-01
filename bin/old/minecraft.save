@@ -1,0 +1,7 @@
+#! /
+bin/bash
+if [ "$1" == "-t" ]; then
+	/usr/java/java -jar /home/pat/games/minecraft/minecraft.jar &
+else
+	/usr/java/java -jar /home/pat/games/minecraft/magic.jar &
+fi

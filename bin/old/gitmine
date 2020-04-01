@@ -1,0 +1,11 @@
+#!/bin/bash
+
+while read user; do
+  mkdir $user
+  curl https://api.github.com/users/$user/repos >$user/repos
+  for user_repo in $(grep \"name\" $user/repos |awk -F '"' '{print $4}'); do
+    mkdir -p $user/$user_repo &&\
+    git clone git@github.com:$user/$user_repo $user/$user_repo
+  done
+  rm $user/repos
+done <~/users

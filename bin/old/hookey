@@ -1,0 +1,2 @@
+yesterday=$(date +%Y%m%d -d "$(date +%b\ %d) - 1 day")
+google-chrome --app=http://107.155.72.213/anarirecap.php?date=$yesterday

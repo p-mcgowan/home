@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sudo -i /opt/lampp/manager-linux.run &

@@ -1,0 +1,33 @@
+#!/bin/bash
+
+mkdir -p ~/tmp/npminit
+cd ~/tmp/npminit
+
+npm init --yes
+npm i $1
+
+jsonData=$(node -e "
+const fs = require('fs');
+const whatever = require('$1');
+
+const stringifier = (key, value) => {
+    void key === null;
+    if (typeof value === 'object' && value !== null) {
+        if (cache.indexOf(value) !== -1) {
+            try {
+                return JSON.parse(JSON.stringify(value));
+            } catch (error) {
+                return;
+            }
+        }
+        cache.push(value);
+    }
+    return value;
+}
+
+let cache = [];
+console.log(JSON.stringify(whatever, stringifier))
+cache = null;
+")
+
+curl -vvv -XPOST -H 'Content-Type: application/json' -F "code=\"$jsonData\"" -F "ns=someModule" -F "root=root" 'http://json2ts.com/Home/GetTypeScriptDefinition'

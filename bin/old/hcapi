@@ -1,0 +1,195 @@
+#!/bin/bash
+
+# Turn on debugging
+# set -xv
+
+resultsFile=~/tmp/hcapires
+
+# change this login info to yours (in seeds)
+# if you log in as another user, be sure to supply the applicable password
+username="patty"
+password="password"
+seedUserPassword="llamas"
+
+usage="Usage: $(basename $0) OPTIONS"'
+
+Sends an HTTP request through curl to api server
+
+options:
+  -a, --auth              Prints out the last-used auth info
+
+  -u, --url URL           Append URL to base URL
+  -w, --fullurl URL       Use URL as the full path (not appending to base URL)
+  -B, --base-url URL      Use URL as the base url
+  -b, --beta              Use base url https://api-beta.hockey-community.com/v1/
+  -L, --local             Use base url http://api.hockey-community.local/v1/
+  -i, --live              Use base url https://api-us.hockey-community.com/v1/
+  -s, --save-url          Save base URL as default
+  -d, --data DATA         Supply payload data
+
+  -r, --reauth            Posts to /authenticate to get a new token.
+  -l USERNAME[:PASSWORD]  If USERNAME specified, tries to log in as that user
+  -p, --hide-password     Don'\''t remember password (default except with -L)
+  -P, --show-password     Remember password
+
+  -R, --request METHOD    Use METHOD request (eg PUT, DELETE)
+  get, post, delete, put  Shortcuts for -R METHOD
+  -h, --help              Show this menu
+'
+if [ -z "$*" ]; then
+  echo "$usage"
+  exit 1
+fi
+
+url=
+fullURL=false
+reauth=false
+savePassword=false
+saveUrl=false
+headerLine=$(grep -n -m2 'HEADERLINE' $0 |tail -n1 |cut -d':' -f1)
+headerLine=$(($headerLine + 1))
+userHeaderLine=$(($headerLine + 1))
+urlHeaderLine=$(($userHeaderLine + 1))
+
+
+while [ ! -z $1 ]; do
+  case $1 in
+    -i | --live)
+      baseUrl='https://api-us.hockey-community.com/v1/'
+      savePassword=false
+    ;;
+    -b | --beta)
+      baseUrl='https://api-beta.hockey-community.com/v1/'
+      savePassword=false
+    ;;
+
+    -L | --local)
+      baseUrl='http://api.hockey-community.local/v1/'
+      savePassword=true
+    ;;
+
+    -B | --base-url)
+      shift
+      baseUrl="$1"
+      savePassword=false
+    ;;
+
+    -s | --save-url)
+      saveUrl=true
+    ;;
+
+    -d | --data)
+      shift
+      data=$1
+    ;;
+
+    -u | --url)
+      shift
+      url=$url$1
+    ;;
+
+    -w | --fullurl)
+      shift
+      url=$1
+      fullURL=true
+    ;;
+
+    -R | --request)
+      shift
+      method=${1^^}
+    ;;
+
+    get | post | delete | put)
+      method=${1^^}
+    ;;
+
+    -a | --auth)
+      head -n $headerLine $0 |tail -n 1 |grep -o 'X-Auth-Token:[^"]*'
+      head -n $userHeaderLine $0 |tail -n 1 |grep -o 'User:[^"]*'
+      head -n $urlHeaderLine $0 |tail -n 1 |grep -o 'Url:[^"]*'
+      exit 0
+    ;;
+
+    -p | --hide-password)
+      savePassword=false
+    ;;
+
+    -P | --show-password)
+      savePassword=true
+    ;;
+
+    -l )
+      username=$(echo $2 |cut -d':' -f1)
+      temp=$(echo $2 |cut -d':' -f2)
+      if [ ! -z $temp ]; then
+        password=$temp
+      else
+        password=$seedUserPassword
+      fi
+      shift
+    ;;
+
+    -r | --reauth)
+      reauth=true
+    ;;
+
+    -h | --help | *) echo "$usage" && exit 1;;
+  esac
+  shift
+done
+
+if [ -z "$baseUrl" ]; then
+  baseUrl=$(head -n $urlHeaderLine $0 |tail -n 1 |grep -o 'Url:[^"]*' |cut -d':' -f2,3)
+elif $saveUrl; then
+  sed -i "$urlHeaderLine s|Url:\ [^\"]\+\"|Url:\ $baseUrl\"|g" $0
+fi
+
+if $reauth; then
+  data=$({ curl -H "Content-Type: application/json" -X POST -d '{"email_address":"'$username'","password":"'$password'"}' ${baseUrl}/authenticate; } 2>&1)
+  regex='authentication_token":"([^"]+)"'
+  if [[ $data =~ $regex ]]; then
+    token=${BASH_REMATCH[1]}
+    sed -i "$headerLine s|X-Auth-Token:\ [^\"]\+\"|X-Auth-Token:\ $token\"|g" $0
+    if $showPassword; then
+      sed -i "$userHeaderLine s|User:\ [^\"]\+\"|User:\ $username:$password\"|g" $0
+    else
+      sed -i "$userHeaderLine s|User:\ [^\"]\+\"|User:\ $username:<password>\"|g" $0
+    fi
+  else
+    echo $data
+    exit 1
+  fi
+  echo $token
+  echo
+  echo $username:$password
+  echo 'document.cookie = "authToken='$token'"'
+  exit 0
+fi
+
+if ! $fullURL; then
+  url=${baseUrl}$url
+fi
+
+#HEADERLINE - keep this above the 'authHeader' line
+authHeader="X-Auth-Token:bjouuuRTM7yhUv4pFoUq4zRlewFoWoVdSb0rOvG9WEtpYwJM5KoKjq8zGJo6osBM"
+userHeader="User:patty:password"
+urlHeader="Url:http://api.hockey-community.local/v1/"
+
+if [ -z "$method" ]; then
+  echo No method provided
+  exit 1
+fi
+
+if $showPassword; then
+  newAuth=
+else
+  newAuth="-H '$authHeader'"
+fi
+
+if ! [ -z "$data" ]; then
+  data="-d '$data'"
+fi
+theTail=$(echo "$newAuth" "$data" "$url" |sed 's/^[ ]*//g')
+echo curl -v  -X "$method" -H 'Accept: application/json' -H 'Content-Type: application/json' "$theTail" |tee $resultsFile
+echo >> $resultsFile
+curl -v  -X "$method" -H 'Accept: application/json' -H 'Content-Type: application/json' "$theTail" 2> $resultsFile |python -m json.tool  |tee -a $resultsFile

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+ssh-keygen -t rsa -C "mickeymcgowan@shaw.ca"
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_rsa
+ssh -vT git@github.com

@@ -1,0 +1,75 @@
+#!/bin/bash
+
+usage="\
+Usage:
+$(basename $0) assignmentNo pages [ partnerName partnerSID [authorName authorSID] ]
+  assignmentNo is the assignment number
+  pages is the number of pages attached
+  partnerName and SID is the author on line 2
+    default: Mila Nikolic 20713137
+  authorName and SID is the author on line 1
+    default: Pat McGowan 21608120
+  Note:
+  author on line 2 is required when changing author on line 1"
+
+if [ $# -lt 2 ]; then
+  echo "$usage" && exit 1
+fi
+
+cd ~/320/assignments
+if [ ! -f oval.png ]; then
+  echo -ne "Error: Could not find image oval.png\n"
+  exit 1
+elif [ ! -f cover.pdf ]; then
+  echo -ne "Error: Could not find cover.pdf\n"
+  exit 1
+fi
+
+#assNo=$1
+#pages=$2
+
+case $# in
+  2)
+    name1="Pat McGowan"
+    sid1="21608120"
+    name2="Mila Nikolic"
+    sid2="20713137"
+  ;;
+  4)
+    name1="Pat McGowan"
+    sid1="21608120"
+    name2="$3"
+    sid2="$4"
+  ;;
+  6)
+    name1="$5"
+    sid1="$6"
+    name2="$3"
+    sid2="$4"
+  ;;
+  *)
+    echo Invalid format && echo "$usage"
+    exit 1
+  ;;
+esac
+
+overlay="\
+\documentclass[letterpaper,12pt]{article}
+\usepackage{graphicx}
+\usepackage[paper=letterpaper,left=25mm,right=25mm,top=3cm,bottom=25mm]{geometry}
+\begin{document}
+\-\vspace{0.2cm}\\\\
+\-\hspace{2cm}$name1\hspace{8cm}$sid1\\\\\\\\
+\-\hspace{2cm}$name2\hspace{8cm}$sid2\\\\\\\\
+\-\hspace{3.2cm}$1\hspace{10.2cm}$2\\\\
+\-\vspace{3.2cm}\\\\
+\includegraphics[width=3cm]{oval.png}\\\\
+\end{document}"
+
+rm -f 320cover.log
+echo "$overlay" >320coverOverlay.tex
+mkdir -p 320coverOverlay/
+pdflatex 320coverOverlay.tex &> 320cover.log
+mv 320coverOverlay* 320coverOverlay/ &>/dev/null
+
+pdftk cover.pdf stamp 320coverOverlay/320coverOverlay.pdf output a$1cover.pdf &>> 320cover.log && rm -rf 320cover*

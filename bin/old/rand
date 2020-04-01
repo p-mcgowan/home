@@ -1,0 +1,26 @@
+#!/bin/bash
+
+if [ "$1" == "-h" ]; then
+  echo "Usage: rand [max [min [times]]]"
+  echo 'If no args supplied, $RANDOM is returned'
+fi
+
+case ${#*} in
+  0)
+    echo $RANDOM
+  ;;
+  1)
+    echo $(($RANDOM % ($1 + 1)))
+  ;;
+  2)
+    range=$(($2 - $1 + 1))
+    echo $(($1 + $(($RANDOM % $range))))
+  ;;
+  3)
+    times=$3
+    for ((i = 0; i < $times; i++)); do
+      range=$(($2 - $1 + 1))
+      echo $(($1 + $(($RANDOM % $range))))
+    done
+  ;;
+esac

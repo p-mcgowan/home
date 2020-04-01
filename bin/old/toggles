@@ -1,0 +1,33 @@
+#! /bin/bash
+cd /home/pat/screenlogs/
+VP=$(sed -n '1p' vars)
+FP=$(sed -n '2p' vars)
+VN=$(sed -n '3p' vars)
+FN=$(sed -n '4p' vars)
+
+if [ -z $1 ];then
+	VN=$((VN * -1))
+	FN=$((FN * -1))
+else
+	if [ $1 == 'f' ];then
+		FN=$((FN * -1))
+	fi
+	if [ $1 == 'v' ];then
+		VN=$((VN * -1))
+	fi
+fi
+echo $VP >vars
+echo $FP >>vars
+echo $VN >>vars
+echo $FN >>vars
+if [ $VN == 1 ];then
+	echo "Vanilla notifications on"
+else
+	echo "Vanilla notifications off"
+fi
+if [ $FN == 1 ];then
+    echo "FTB notifications on"
+else
+    echo "FTB notifications off"
+fi
+

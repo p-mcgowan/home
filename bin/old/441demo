@@ -1,0 +1,4 @@
+google -w 'https://docs.google.com/presentation/d/1HjV4jmP5nxyLzio8VgnjogP3BGZFPvVsFaWIvRfVeiw/edit'
+google -n -f '~/git/school/441/proto/oldversion/index.html'
+google -f '~/git/school/441/proto/newversion/index.html'
+

@@ -1,0 +1,7 @@
+url="$1"
+shift
+# Log in to the server.  This only needs to be done once.
+wget --save-cookies cookies.txt --keep-session-cookies --delete-after --ask-password $@ $url
+
+# Now grab the page or pages we care about.
+wget --load-cookies cookies.txt $url

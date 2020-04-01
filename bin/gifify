@@ -1,0 +1,89 @@
+#!/bin/bash
+
+LOGFILE=~/tmp/gifiy.log
+
+checkDeps() {
+  err=
+  for dep in recordmydesktop ffmpeg xrect; do
+    if ! command -v $dep &>/dev/null; then
+      echo Dependancy $dep is not in your path
+      err="$err $dep"
+    fi
+  done
+  if ! [ -z "$err" ]; then
+    echo "Some dependancies are missing."
+    echo "Try apt-get install${err} first"
+    exit 1
+  fi
+}
+
+usage() {
+  echo "Usage: $(basename $0) [options]"
+  echo "options:"
+  echo "  -f, --fps FPS       Set framerate (default=15 fps)"
+  echo "  -o, --ouput FILE    Set output file"
+  # echo "  -z, --fuzz PCT      Add PCT (%) fuzz to output (default=3%)"
+  echo "  -n, --cleanup       Remove intermediate files"
+  echo "  -v, --video         Only output video file"
+  echo "  -V, --verbose       Output to stdout"
+  echo "  -h, --help          Show this menu"
+}
+
+checkDeps
+
+while [[ -n "$1" ]]; do
+  case "$1" in
+    -f | --fps) fps="$2" ; shift;;
+    -o | --output) outfile="$2" ; shift;;
+    -z | --fuzz) fuzz="$2""%" ; fuzz=${fuzz/\%\%/%}; shift;;
+    -n | --cleanup) cleanup=false;;
+    -v | --video) makeGif=false;;
+    -V | --verbose) verbose=true;;
+    -h | --help) usage ; exit 1;;
+    *) echo unknown option "$1" ; usage ; exit 1;;
+  esac
+  shift
+done
+
+if [ -z "$verbose" ]; then
+  exec > $LOGFILE 2>&1
+else
+  exec &> >(tee $LOGFILE)
+fi
+
+rm -rf out.ogv optimised.gif convertToGifOut/
+mkdir -p convertToGifOut/frames
+echo Recording. Press Ctrl-C to finish
+recordmydesktop $(xrect) --no-wm-check --fps ${fps-15} --channels 1 --v_quality 63 --v_bitrate 2000000 --no-sound -o convertToGifOut/out.ogv 2>&1
+echo
+if ! $makeGif; then
+  if $cleanup; then
+    mv convertToGifOut/out.ogv "${outfile-out}.ogv"
+    rm -rf convertToGifOut
+  fi
+  exit 0
+fi
+
+# echo -n Converting .ogv to screenshots...
+# ffmpeg -i convertToGifOut/out.ogv -vf fps=12 -vsync 0 "convertToGifOut/frames/out%04d.png"
+# mplayer -ao null convertToGifOut/out.ogv -vo jpeg:outdir=convertToGifOut/frames &>>$giflog
+# https://unix.stackexchange.com/questions/24014/creating-a-gif-animation-from-png-files
+# echo -ne 'DONE\nConverting screenshots into animated gif...'
+# TODO: ffmped is faster and less mem intensive, but fucks up colours
+# ffmpeg -i %03d.png output.gif
+# ffmpeg -framerate 15 -pattern_type glob -i 'convertToGifOut/frames/*.png' -vf scale=1024:-1 "${outfile-output.gif}"
+# ffmpeg -framerate 12 -pattern_type glob -i 'convertToGifOut/frames/*.png' "${outfile:-output.gif}"
+# convert convertToGifOut/frames/*.png -fuzz ${fuzz-3%} -layers Optimize "${outfile-output.gif}" &>>$giflog
+
+# https://engineering.giphy.com/how-to-make-gifs-with-ffmpeg/
+echo -n Extracting palette...
+ffmpeg -i convertToGifOut/out.ogv -filter_complex "[0:v] palettegen" convertToGifOut/palette.png
+
+echo -ne 'DONE\nConverting ogv to gif...'
+rm -f "${outfile-output.gif}"
+ffmpeg -i convertToGifOut/out.ogv -i convertToGifOut/palette.png -filter_complex "[0:v][1:v] paletteuse" "${outfile-output.gif}"
+
+echo -e "DONE\nGifified file '${outfile-output.gif}'"
+if $cleanup; then
+  rm -rf convertToGifOut/
+fi

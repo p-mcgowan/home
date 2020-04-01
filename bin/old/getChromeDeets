@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# http://unix.stackexchange.com/questions/237626/is-there-a-way-to-activate-a-particular-tab-of-chrome-via-bash
+
+WINID=$(xdotool search --name 'Google Chrome' | head -n 1)
+WINID_HEX=$(printf "0x%x" $WINID)
+
+while true
+do
+        xwininfo -id $WINID_HEX | grep Gmail
+        if [ "$?" -ne 0 ]
+        then
+                xdotool key --window $WINID ctrl+Tab
+        else
+                break
+        fi
+        sleep 2
+done

@@ -1,0 +1,4 @@
+lsb_release -a
+uname -a
+echo
+cat /proc/cpuinfo

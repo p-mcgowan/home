@@ -1,0 +1,20 @@
+#! /bin/bash
+cd ~/screenlogs
+VPO=$(sed -n '1p' vars)
+FPO=$(sed -n '2p' vars)
+VNOTIFY=$(sed -n '3p' vars)
+FNOTIFY=$(sed -n '4p' vars)
+screen -S vanilla -p 0 -X stuff "`printf "/list\r"`"
+VP=$(tail vanilla/screenlog.0 |grep 'players online' |grep -o '[0-9]\{1,2\}\/[0-9]\{1,2\}' |tail -1 |sed -r 's|^([^.]+).*$|\1|; s|^[^0-9]*([0-9]+).*$|\1|')
+screen -S ftb -p 0 -X stuff "`printf "/list\r"`"
+FP=$(tail ftb/screenlog.0 |grep 'players online' |grep -o '[0-9]\{1,2\}\/[0-9]\{1,2\}' |tail -1 |sed -r 's|^([^.]+).*$|\1|; s|^[^0-9]*([0-9]+).*$|\1|')
+
+echo $VP >vars
+echo $FP >>vars
+echo $VNOTIFY >>vars
+echo $FNOTIFY >>vars
+
+if ( [ $VP != $VPO ] && [ $VNOTIFY -eq 1 ] ) || ( [ $FP != $FPO ] && [ $FNOTIFY -eq 1 ] ); then
+	killall zenity
+	zenity --notification --title="Server Activity" --text "Vanilla(`echo $VNOTIFY`):`echo $VP`, FTB(`echo $FNOTIFY`):`echo $FP`"
+fi

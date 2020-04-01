@@ -1,0 +1,204 @@
+#!/bin/bash
+
+shopt -s globstar
+
+usage="\
+Mocha helper
+usage: $(basename $0) [-f | -a] [...options]
+options:
+  -v, --verbose              Log all the things
+  -t, --ts-node              Run with ts-node instead of dist
+  -d, --dry-run              Just print the files that would be run
+  -i, --interactive          Ask before running tests
+  -B, --no-build             Don't build before running
+  -b, --build                Build before running
+  -w, --watch                Watch files for changes
+  -o, --opt OPTS             Pass options to mocha
+  -h, --help                 Show this menu"
+
+VERBOSE=0
+TSNODE=
+WATCH=
+DRYRUN=
+BUILD=true
+FORCE_BUILD=
+
+while [ "${1:0:1}" == "-" ]; do
+  arg="$1"
+  shift
+  case $arg in
+    --verbose) ((VERBOSE++)) ;;
+    --ts-node) TSNODE=true ;;
+    --dry-run) DRYRUN=true ;;
+    --interactive) INTERACTIVE=true; ;;
+    --no-build) BUILD= ;;
+    --build) BUILD=true; FORCE_BUILD=true ;;
+    --watch) WATCH=true ;;
+    --opts) OPTS="$OPTS $1" && shift ;;
+    --help) echo "$usage" && exit 0 ;;
+    --*)
+      echo 'Unknown option "'$arg'"'
+      echo "$usage"
+      exit 1
+    ;;
+    *)
+      for ((i = 1; i < ${#arg}; i++)); do
+        case ${arg:$i:1} in
+          v) ((VERBOSE++)) ;;
+          t) TSNODE=true ;;
+          d) DRYRUN=true ;;
+          i) INTERACTIVE=true ;;
+          B) BUILD= ;;
+          b) BUILD=true; FORCE_BUILD=true ;;
+          w) WATCH=true ;;
+          o) OPTS="$OPTS $1" && shift ;;
+          h) echo "$usage" && exit 0 ;;
+          *)
+            echo 'Unknown option "'$arg'"'
+            echo "$usage"
+            exit 1
+          ;;
+        esac
+      done
+    ;;
+  esac
+done
+
+if [ "$INTERACTIVE$WATCH" == "truetrue" ]; then
+  echo "only one of interactive and watch can be specifiec"
+  exit 1
+fi
+
+if [ $VERBOSE -gt 0 ]; then
+  export PRETTY_LOG=true
+  if [ $VERBOSE -gt 1 ]; then
+    LOG_LEVELS="default:none:all;debug:none:all;$LOG_LEVELS"
+  fi
+else
+  LOG_LEVELS="$LOG_LEVELS;PS.api:none;PS.HttpError:none;SpindexPageService:none;lambda:none;"
+fi
+
+export LOG_LEVELS
+
+export NODE_ENV=${NODE_ENV:-test}
+export LAMBDA_HOST=${LAMBDA_HOST:-http://localhost:9090}
+# export MOCHA_REPORTER=${MOCHA_REPORTER:-"--reporter=./test/slim-reporter.js"}
+if [[ "$(pwd)" =~ linde-plantserv2 ]]; then
+  export MOCK_S3_ENDPOINT=${MOCK_S3_ENDPOINT:-http://localhost:5001}
+else
+  export MOCK_S3_ENDPOINT=${MOCK_S3_ENDPOINT:-http://localhost:5002}
+fi
+
+if [ -n "$TSNODE" ]; then
+  if [ -z "$*" ]; then
+    files=$(ls src/**/*.spec.ts)
+  else
+    files=$(ls src/**/*.spec.ts |grep -i $@)
+    if [ -z "$files" ]; then
+      echo No files found for "$@"
+      exit 1
+    fi
+  fi
+
+  if [ -n "$DRYRUN" ]; then
+    echo $files
+    exit 0
+  fi
+  npx mocha $MOCHA_REPORTER --opts --file src/shared/test/mocha-startup.ts ./test/mocha.opts $files
+else
+  if ! [ -d dist ]; then
+    echo no dist - building
+    bash ~/bin/watcherHelper --build || exit 1
+    BUILD=
+  fi
+
+
+  if [ -n "$BUILD" ]; then
+    if [ -z "$FORCE_BUILD" ] && [ $(ps aux |grep 'tsc.*watch' |wc -l) -gt 1 ]; then
+      echo 'Skipping build, found tsc watch - use "-b|--build" to force'
+    else
+      bash ~/bin/watcherHelper --build || exit 1
+    fi
+  fi
+
+  cd dist
+
+  if [ $# == 0 ]; then
+    files=$(ls **/*.spec.js |grep -v '/dist/')
+  else
+    files=$(ls **/*.spec.js |grep -v '/dist/' |grep -i $@)
+    if [ -z "$files" ]; then
+      echo No files found for "$@"
+      exit 1
+    fi
+  fi
+
+
+  mochaStartup=
+  if [ -z $NOSTARTUP ] && [[ "$(pwd)" =~ "linde-plantserv2" ]]; then
+    mochaFile=($(find . -name mocha-startup.js))
+    if [ -n "$mochaFile" ]; then
+      mochaStartup="--file $mochaFile"
+    fi
+  fi
+
+  if [ -n "$DRYRUN" ]; then
+    echo "$files"
+    exit 0
+  fi
+
+  MOCHA_OPTS=$OPTS
+  if [ -f ./test/mocha-compiled.opts ]; then
+    MOCHA_OPTS="$OPTS --opts ./test/mocha-compiled.opts"
+  elif [ -f ./test/mocha.opts ]; then
+    MOCHA_OPTS="$OPTS --opts ./test/mocha.opts"
+  fi
+
+  if [ -n "$WATCH" ]; then
+    bash ~/bin/watcherHelper -D "npx mocha $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $files"
+  else
+    if [ -n "$INTERACTIVE" ]; then
+      allTests=($files)
+      for i in "${!allTests[@]}"; do
+        filename=${allTests[$i]}
+        printf "%4s %s\n" "[$i]" "${filename/*\//} ($filename)"
+      done
+      echo
+      read -p "Enter space/comma separated test numbers (0-3, 7, 10-12): " ans
+      toRun=($(
+        awk -F'[[:space:],]+' '{
+          for (i = 1; i <= NF; i++) {
+            if ($i ~ /^[0-9]+$/) {
+              printf("%s\n", $i);
+            } else if ($i ~ /^[0-9]+-[0-9]+$/) {
+              split($i, range, "-")
+              if (range[1] >= range[2]) {
+                printf("invalid range: %s\n", $i) | "cat 1>&2";
+                exit(1);
+              }
+              for (j = range[1]; j <= range[2]; j++) {
+                printf("%s\n", j);
+              }
+            } else {
+              printf("invalid format: %s\n", $i) | "cat 1>&2";
+              exit(1);
+            }
+          }
+        }' <<<$ans
+      ))
+      allFiles=
+      for index in ${toRun[@]}; do
+        allFiles="$allFiles ${allTests[$index]}"
+      done
+      ../node_modules/mocha/bin/mocha $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $allFiles
+      # for file in $files; do
+      #   read -p "Run $file [Y/n]?" ans
+      #   if [ "${ans,,}" != 'n' ]; then
+      #     ../node_modules/mocha/bin/mocha $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $file
+      #   fi
+      # done
+    else
+      ../node_modules/mocha/bin/mocha $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $files
+    fi
+  fi
+fi

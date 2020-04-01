@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cd ~/games/tfc_server
+java -Xmn1G -Xms4G -Xmx4G -jar forge-1.7.10-10.13.2.1272-universal.jar nogui
+
+#screen -S sessionname -X stuff command

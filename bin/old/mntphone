@@ -1,0 +1,3 @@
+#! /bin/bash
+gksu -S --message "Password" "mount mtpfs ~/mnt/phone -t fuse -o user,noauto,allow_other"
+

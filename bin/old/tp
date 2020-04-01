@@ -1,0 +1,11 @@
+#! /bin/bash
+
+if [ "$1" == 'w' ]; then
+	screen -S tfc -p 0 -X stuff "`printf "/tp initech 19829 150 -13304\r"`"
+fi
+if [ "$1" == 'e' ]; then
+	screen -S tfc -p 0 -X stuff "`printf "/tp initech 38908 153 297\r"`"
+fi
+if [ "$1" == 'b' ]; then
+	screen -S tfc -p 0 -X stuff "`printf "/tp initech 38923 147 4285\r"`"
+fi

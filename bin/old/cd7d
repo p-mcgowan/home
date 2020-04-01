@@ -1,0 +1,2 @@
+#!/bin/bash
+cd /home/pat/.PlayOnLinux/wineprefix/Steam/drive_c/Program\ Files/Steam/SteamApps/common/7\ Days\ To\ Die && ls --color=auto

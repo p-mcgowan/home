@@ -1,0 +1,159 @@
+#!/bin/bash
+
+#  Bash C/C++ Code Formatter v0.1
+#
+#  Pat McGowan, 09.14
+
+#  Some 'constants'
+readonly NAME=$(basename "$0")
+readonly VALID_OPTIONS="bcsilvw"
+readonly BACKUP=0
+readonly SPACE=1
+readonly INLINE=2
+readonly VERBOSE=3
+readonly WHITESPACE=4
+readonly COMMENTS=5
+readonly CRLF=6
+
+#  The flags and arguments array for loop parsing and default flag values
+declare -a flags=( false 0 false false false false false)
+declare -a argv=( $2 $3 $4 $5 $6 $7 $8)
+
+#  Store first argument in opts, if it starts with a '-' then we will
+#+ process it. Also keep track of #<option parameters> so that we can
+#+ parse argv in the order that options are input.
+opts=$1
+if [ "${opts:0:1}" != "-" ]; then
+  echo "No options specified. Aborting"
+  echo "Try \`$NAME -h' for help."
+  exit 1
+fi
+option_param_counter=0
+
+#  Options parsing. Compares each character that follows a '-' (in a
+#+ single string) to a test case and sets flags or prints accordingly.
+if [ "${opts:0:1}" == "-" ]; then
+  opts=${opts:1:${#opts}-1}
+  for (( i = 0; i < ${#opts}; ++i )); do
+    case ${opts:$i:1} in
+      b)
+        flags[$BACKUP]=true
+      ;;
+      s)
+        flags[$SPACE]=${argv[$option_param_counter]}
+        if [ ${flags[$SPACE]} -lt 1 ]; then
+          echo "Spacing must be a value greater than 0, aborting."
+          exit 1
+        fi
+        option_param_counter=$(($option_param_counter + 1))
+      ;;
+      i)
+        flags[$INLINE]=true
+      ;;
+      v)
+        flags[$VERBOSE]=true
+      ;;
+      w)
+        flags[$WHITESPACE]=true
+      ;;
+      c)
+        flags[$COMMENTS]=true
+      ;;
+      l)
+        flags[$CRLF]=true
+      ;;
+      h)
+        echo "Usage: $NAME [-$VALID_OPTIONS] <option parameters> files"
+        echo "Options:"
+        echo "-b  Makes a backup of the input file, appending time and date"
+        echo "-c  Format line comments (2 spaces before, 1 after '//'"
+        echo "-i  Appends newlines to '{' or ';' characters, if they are not"
+        echo "    at the end of a line, and prepends '//' with newline."
+        echo "-l  Replaces CRLF with LF."
+        echo "-s  Change tabs to <option parameter> spaces (>0)"
+        echo "-v  Print progress messages"
+        echo "-w  Remove whitespace from end of line"
+        echo "-h  Show this menu"
+        exit 1
+      ;;
+      *)
+        echo Unknown switch: -${opts:$i:1}. Aborting
+        echo "Usage: $NAME [-$VALID_OPTIONS] <option parameters> files"
+        echo "Try \`$NAME -h' for more information."
+        exit 1
+      ;;
+    esac
+  done
+  for (( i = 0; i <= $option_param_counter; i++ )) do
+    shift
+  done
+  files=$*
+else
+  files=$*
+fi
+
+if [ "$files" == "" ]; then
+  echo "No input files given, aborting."
+  echo "Try \`$NAME -h' for more information."
+  exit 1
+fi
+
+#  Check that all files exist before operations
+for file in $files
+do
+  if [ ! -f $file ]; then
+    echo "Could not find file $file"
+    echo "Aborting"
+    exit
+  fi
+done
+
+#  The meat - parse file(s) and apply changes
+for file in $files
+do
+  ${flags[$VERBOSE]} && echo -e "Formatting $file\n----"
+  
+	#  Make backup
+  if ${flags[$BACKUP]}; then
+    cp $file $file.$(date +%d%m%y%H%M%S) && \
+    ${flags[$VERBOSE]} && echo "  Backup made"
+  fi
+  
+  #  '{', ';' -> [{;]\n, '//' -> \n//
+  if ${flags[$INLINE]}; then
+    ${flags[$VERBOSE]} && echo "  Inserting newlines"
+    sed -i 's|{\([^$]\)|{\n\1|g' $1
+    sed -i 's|\;\([^$]\)|\;\n\1|g' $1
+    sed -i 's|//\([^$]\)|\n//\1|g' $1
+  fi
+
+  #  Change tabs to $2 (default = 2) spaces
+  if [ ${flags[$SPACE]} != 0 ]; then
+    ${flags[$VERBOSE]} && echo "  Changing tabs to ${flags[$SPACE]} spaces"
+    expand -t ${flags[$SPACE]} $file >codeform_tmp
+    mv codeform_tmp $file
+  fi
+
+  #  Remove trailing whitespace
+  if ${flags[$WHITESPACE]}; then
+    ${flags[$VERBOSE]} && echo "  Removing trailing whitespace"
+    sed -i 's/[ \t]*$//' $file
+  fi
+
+  #  Fix comment strings
+  if ${flags[$COMMENTS]}; then
+    ${flags[$VERBOSE]} && echo "  Reformatting comments"
+    sed -i 's|//|  // |g' $file
+    sed -i 's|[ ]\{2,\}//[ *]\{1,\}|  // |g' $file
+  fi
+
+  #  Replace CRLF with LF
+  if ${flags[$CRLF]}; then
+    ${flags[$VERBOSE]} && echo "  Replacing CRLFs"
+    sed -i -e 's/
+//g' $file
+  fi
+  ${flags[$VERBOSE]} && echo
+done
+
+echo Done && exit 0

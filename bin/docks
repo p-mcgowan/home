@@ -1,0 +1,414 @@
+#!/bin/bash
+
+# set -x
+
+# docks -u -L
+# docks -L -u
+
+USAGE="\
+Removes docker containers and optionally re-launches
+usage: $(basename $0) [options]
+options:
+  Setting targets:
+    -t, --target CONTAINER  Target CONTAINER container
+    -r, --regex REGEX       Target containers matching REGEX
+    -p, --project PROJECT   Use PROJECT to select containers [ps|gs|vc]
+    -A, --all-containers    Target all containers
+
+  Actions:
+    -f, --fire               Remove all containers and images completely
+                             (implies --all-containers)
+    -d, --down               Stop target containers
+    -c, --clean-all          Remove stopped containers and stale / tmp images
+    -u, --up [LOC]           Run docker-compose up -d --build after
+    -U, --up-only [LOC]      Run docker-compose up -d --build only
+    -l, --list [ARGS]        Run docker ps (formerly docks)
+
+  Options:
+    -o, --compose-args ARGS  Pass ARGS into docker build (only applies when -r is set)
+    -L, --no-local-fs        Don' try to find docker-compose-local-fs.yml
+    -h, --help               Show this menu"
+
+OPT_LOCAL=true
+
+confirm() {
+  if [ -z "$YES" ]; then
+    echo -n "Are you sure you want to reset ${1:-all images and containers}? (yes/NO) "
+    read ans
+  fi
+  if [ -n "$YES" ] || [ "${ans,,}" == "yes" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+pruneDocker() {
+  if [ -n "$DEBUG" ]; then
+    echo "for i in volume container image; do echo -e 'y\n' | docker $i prune $*; done"
+    return
+  fi
+  for i in volume container image; do
+    echo -e 'y\n' | docker $i prune
+  done
+}
+
+killContainers() {
+  local TARGETS="$*"
+  if [ -n "$ALL_CONTAINERS" ]; then
+    TARGETS="$TARGETS $(docker ps -a -q)"
+  fi
+
+  if [ -n "$TARGETS" ]; then
+    if [ -n "$DEBUG" ]; then
+      echo "docker rm -f $TARGETS"
+      echo "pruneDocker"
+      return
+    fi
+    docker rm -f $TARGETS
+    if [ -z "$CLEAN" ]; then
+      pruneDocker
+    fi
+  else
+    if [ -z "$UP_WHERE" ]; then
+      echo "No containers found"
+      docker ps
+      exit 1
+    else
+      cd $UP_WHERE && docker-compose down
+    fi
+  fi
+}
+
+buildContainers() {
+  # COMPOSE_ARGS="-f docker-compose-local-fs.yml -p mock"
+  if [ -n "$OPT_LOCAL" ]; then
+    COMPOSE_ARGS="-f docker-compose-local-fs.yml $COMPOSE_ARGS"
+  fi
+  if [ -n "$DEBUG" ]; then
+    echo "building: "
+    echo "cd $UP_WHERE"
+    echo "docker-compose $COMPOSE_ARGS up --remove-orphans -d --build"
+    return
+  fi
+  cd $UP_WHERE && \
+  docker-compose $COMPOSE_ARGS up --remove-orphans -d --build $* && \
+  cd - &>/dev/null
+}
+
+getTargets() {
+  local TARGETS=
+  if [ -n "$CONTAINER" ]; then
+    TARGETS="$TARGETS $CONTAINER"
+  fi
+
+  if [ -n "$REGEX" ]; then
+    TARGETS="$TARGETS $(docker ps -a |awk -v prefix="$REGEX" -F'[[:space:]][[:space:]]+' '$NF ~ prefix { print $NF }')"
+  fi
+
+  if [ -n "$ALL_CONTAINERS" ]; then
+    TARGETS="$TARGETS $(docker ps -a -q)"
+  fi
+
+  if [ -n "$PROJECT" ]; then
+    local PREFIX=
+    case $PROJECT in
+      ps) PREFIX=ps;;
+      vc) PREFIX=v2c;;
+      gs) PREFIX=gesu;;
+    esac
+    if [ -n "$PREFIX" ]; then
+      TARGETS="$TARGETS $(docker ps -a |awk -v project="$PREFIX" -F'[[:space:]][[:space:]]+' '$NF ~ project { print $NF }')"
+    fi
+  fi
+
+  echo $TARGETS
+}
+
+getUpLocation() {
+  local DIRNAME=
+
+  if [ -z "$1" ] || [[ $1 =~ ^- ]] || [[ "$1" == "true" ]]; then
+    if [ -n "$PROJECT" ]; then
+      DIRNAME=$PROJECT
+    else
+      DIRNAME="$(pwd)"
+      re="\\blinde-plantserv2\\b"
+      if [[ $DIRNAME =~ $re ]]; then
+        DIRNAME=ps;
+      fi
+      re="\\bv2c\\b"
+      if [[ $DIRNAME =~ $re ]]; then
+        DIRNAME=vc;
+      fi
+      re="\\bminq-gesu-2\\b"
+      if [[ $DIRNAME =~ $re ]]; then
+        DIRNAME=gs;
+      fi
+    fi
+  else
+    DIRNAME="$1"
+  fi
+
+  case $DIRNAME in
+    ps) DIRNAME="/home/pat/source/isarbits/linde-plantserv2/docker/dev" ;;
+    vc) DIRNAME="/home/pat/source/isarbits/v2c/docker/dev" ;;
+    gs) DIRNAME="/home/pat/source/isarbits/minq-gesu-2/infrastructure/docker" ;;
+  esac
+
+  if [ -n "$OPT_LOCAL" ]; then
+    if [ -f $DIRNAME/docker-compose-local-fs.yml ]; then
+      echo "$DIRNAME"
+    elif [ -f $DIRNAME/docker-compose.yml ]; then
+      echo "$DIRNAME"
+    fi
+  else
+    if [ -f $DIRNAME/docker-compose.yml ]; then
+      echo "$DIRNAME"
+    fi
+  fi
+}
+
+dockerList() {
+    local usage="\
+Usage: dockerList --list [options] [args]
+Docker stuff helper. Default prints compact docker ps -a
+options:
+  -w, --watch       Watch docker ps and docker images
+  -u, --up          Docker compose up
+  -r, --rebuild     Killem -u
+  -v, --verbose     Docker ps
+  -l, --logs REG    Docker logs for container matching regex REG
+  -h, --help        Show this menu\
+"
+  # "NAME STATUS PORTS"
+  # "CONTAINER ID|IMAGE|COMMAND|CREATED|STATUS|PORTS|NAMES"
+  case "$1" in
+    -w | --watch)
+      shift
+      local chrs=('─' '/' '─' '\' '|' '/')
+      local i=0
+      while true; do
+        s=$(docker ps -a |awk -F '[[:space:]][[:space:]]+' '{ print $NF, "\t", $5, "\t", $6 }' |column -ts $'\t')
+        clear;
+        echo "$s"
+        echo ${chrs[(i++ % ${#chrs[*]})]}
+        # docker images
+        sleep 2
+      done
+    ;;
+    -v | --verbose)
+      docker ps -a |awk -F '[[:space:]][[:space:]]+' '{ print $NF, "\t", $5, "\t", $6 }' |column -ts $'\t'
+    ;;
+    -vv)
+      docker ps -a
+    ;;
+    -l | --logs)
+      shift
+      target="$1"
+      shift
+      if [ -z $target ]; then
+        local i=31
+        for container in $(docker ps |awk 'NR > 1{print $NF }'); do
+          local col="\033[${i}m";
+          docker logs --details $container | sed "s/^/$(printf $col)${container} |$(printf '\033[0m')/g"
+          ((i++))
+          echo
+        done
+        exit 0
+      fi
+      container=$(docker ps |awk -v target="$target" '$NF ~ target { print $NF }')
+      if [ -n "$container" ]; then
+        docker logs $container $*
+      else
+        echo could not find container $target
+        docker ps
+      fi
+    ;;
+    -h | --help) echo "$usage" ;;
+    '')
+      docker ps -a |awk '
+        FNR == 1 {
+          s = $0
+          # find names that can contain a single space, followed by 2+ spaces or the end of the line
+          while(match(s, /(([^ ] )|( [^ ])|([^ ]{2}))+( {2,}|$)/)) {
+            # build string of field widths ("10 15 9 10")
+            f = (f ? f OFS:x) RLENGTH
+            s = substr(s, RLENGTH + 1)
+          }
+          # replace last field width with an arbitrary large number to capture the maximum width
+          sub(/[0-9]*$/,1000,f)
+          # set FIELDWIDTHS
+          FIELDWIDTHS=f
+          # recalculate fields using FIELDWIDTHS
+          $0=$0
+        }
+        {
+          # id = $1;
+          # image = $2;
+          # command = $3;
+          # created = $4;
+          status = $5;
+          port_string = $6;
+          name = $7;
+
+          if (FNR == 1) {
+            printf("%s\t%s\t%s\n", name, status, port_string);
+            next;
+          }
+
+          formatted_ports = "--";
+          matchIndex = match(port_string, /([0-9]{4,5}->[0-9]{4,5}|[0-9]{4,5})\//)
+
+          while(matchIndex != 0) {
+            a_port = substr(port_string, RSTART, RLENGTH - 1);
+            port_string = substr(port_string, RSTART + RLENGTH - 1);
+            matchIndex = match(port_string, /([0-9]{4,5}->[0-9]{4,5}|[0-9]{4,5})\//);
+
+            if (formatted_ports == "--") {
+              formatted_ports = a_port;
+            } else {
+              formatted_ports = formatted_ports ", " a_port;
+            }
+          }
+          printf("%s\t%s\t%s\n", name, status, formatted_ports);
+        }' |column -ts $'\t';;
+    *) for i in $*; do docker logs $i; done;;
+  esac
+  exit 0
+}
+
+if [ -z "$1" ]; then
+  echo "$USAGE" && exit 1
+fi
+
+while [ "${1:0:1}" == "-" ] && [ -z "$DONE" ]; do
+  ARG="$1"
+  shift
+  case $ARG in
+    --target) CONTAINER=$1 && shift ;;
+    --regex) REGEX=$1 && shift ;;
+    --project) PROJECT=$1 && shift ;;
+    --all-containers) ALL_CONTAINERS=true ;;
+    --down) DOWN=true ;;
+    --fire) DESTROY=true ;;
+    --clean-all) CLEAN=true ;;
+    --no-cache) CACHE="--no-cache" ;;
+    --up)
+      if [[ $1 =~ ^- ]]; then
+        UP=true
+      else
+        UP="${1:-true}"
+        shift
+      fi
+    ;;
+    --up-only)
+      if [[ $1 =~ ^- ]]; then
+        UP_ONLY=true
+      else
+        UP_ONLY="${1:-true}"
+        shift
+      fi
+    ;;
+    --compose-args) COMPOSE_ARGS="$COMPOSE_ARGS $1" && shift ;;
+    --no-local-fs) OPT_LOCAL=;;
+    --yes) YES=true;;
+    --debug) DEBUG=true;;
+    --list) dockerList $* ;;
+    --help) echo "$USAGE" && exit 0 ;;
+    --) DONE=true; shift ;;
+    *)
+      for ((i = 1; i < ${#ARG}; i++)); do
+        case ${ARG:$i:1} in
+          r) REGEX=$1 && shift ;;
+          A) ALL_CONTAINERS=true ;;
+          d) DOWN=true ;;
+          p) PROJECT=$1 && shift ;;
+          t) CONTAINER=$1 && shift ;;
+          f) DESTROY=true ;;
+          c) CLEAN=true ;;
+          n) CACHE="--no-cache" ;;
+          u)
+            if [[ $1 =~ ^- ]]; then
+              UP=true
+            else
+              UP="${1:-true}"
+              shift
+            fi
+          ;;
+          U)
+            if [[ $1 =~ ^- ]]; then
+              UP_ONLY=true
+            else
+              UP_ONLY="${1:-true}"
+              shift
+            fi
+          ;;
+          o) COMPOSE_ARGS="$COMPOSE_ARGS $1" && shift ;;
+          L) OPT_LOCAL=;;
+          l) dockerList $* ;;
+          h) echo "$USAGE" && exit 0 ;;
+          *)
+            echo 'Unknown option "'$ARG'"'
+            echo "$USAGE"
+            exit 1
+          ;;
+        esac
+      done
+    ;;
+  esac
+done
+
+if [ -n "$UP" ] || [ -n "$UP_ONLY" ]; then
+  UP_WHERE=$(getUpLocation "${UP_ONLY:-$UP}")
+  if [ -z "$UP_WHERE" ]; then
+    echo "Could not find build path: ${UP_ONLY:-$UP} " $UP_WHERE
+    exit 1
+  else
+    echo "$UP_WHERE"
+  fi
+fi
+
+re='^(true)?$'
+if ! [[ $DESTROY$CLEAN =~ $re ]]; then
+    echo 'Only one of -f and -c can be set'
+    exit 1
+fi
+
+if [ -n "$DESTROY" ]; then
+  if confirm; then
+    docker rm -f $(docker ps -aq)
+    docker rmi -f $(docker images -q)
+    echo -e 'y\n' | docker volume prune
+    echo -e 'y\n' | docker container prune
+    echo -e 'y\n' | docker image prune -a
+  else
+    exit 0
+  fi
+fi
+
+CONTAINERS=$(getTargets)
+
+if [ -n "$UP_ONLY" ]; then
+  buildContainers $CONTAINERS
+  exit 0
+fi
+
+if [ -n "$DOWN" ]; then
+  UP_WHERE=$(getUpLocation "${UP_ONLY:-$UP}")
+  if [ -z "$UP_WHERE" ] && [ -z "$ALL_CONTAINERS" ] && [ -z "$REGEX" ]; then
+    echo "Could not find build path: ${UP_ONLY:-$UP} " $UP_WHERE
+    exit 1
+  else
+    echo "$UP_WHERE"
+  fi
+  killContainers $CONTAINERS
+fi
+
+if [ -n "$CLEAN" ]; then
+  pruneDocker -a
+fi
+
+if [ -n "$UP" ]; then
+  buildContainers
+fi

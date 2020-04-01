@@ -1,0 +1,11 @@
+if [ "$(whoami 2>&1 |grep -o '[0-9]*')" != 0 ]; then
+  echo Must be run as root
+  exit 1
+elif [ "$1" == "" ]; then
+  echo Usage: vibrate SECONDS
+  exit 1
+fi
+echo -1 >/sys/devices/virtual/timed_output/vibrator/enable
+sleep $1
+echo 1 >/sys/devices/virtual/timed_output/vibrator/enable
+

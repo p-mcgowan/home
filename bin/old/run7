@@ -1,0 +1,9 @@
+#!/bin/bash
+
+cd ~/cs221/labs/lab7
+./qsortCount $1 10000 >tmp
+if [ "$2" != "-v" ]; then
+  tail -n 1 tmp >> lab7.tex
+else
+  tail -n 1 tmp
+fi

@@ -1,0 +1,89 @@
+#!/bin/bash
+
+# file=$1
+# if [ $1 == -f ]; then
+#   echo Found:
+#   grep -o ">\([a-zA-Z ]\+\)<\|^[ ]\+[a-zA-Z]\+[ ]\+" $2 |sed -e 's/[<>]//g' -e 's/^[ ]*//g' |sort -u |tee ~/tmp/translating.tmp
+#   file=~/tmp/translating.tmp
+#   if [ ! -z $3 ]; then
+#     translated="$3."
+#     translated=$(echo $translated |sed 's/\.\./\./g')
+#   fi
+# elif [ $# -ne 1 ]; then
+#   echo Usage: $(basename $0) file
+#   echo 'where file contains translation strings (ie "this is a test")'
+#   exit 1
+# fi
+
+usage='Usage: $(basename $0) [options] files
+where file is usally an html file
+options:
+-n, --namespace    :prefix
+-k, --keys         :just the yml
+-t, --no-titlecase :dont titlecase output (todo)
+-l, --lines        :show line numbers
+'
+
+keys=false
+title=true
+lines=false
+
+while [ ! -z "$1" ]; do
+  case $1 in
+    -n | --namespace) translated=$(echo "$1." |sed 's/\.\./\./g');;
+    -k | --keys) keys=true;;
+    -l | --lines) lines=true;;
+    -t | --no-titlecase) title=false;;
+    -h | --help) echo "$usage"; exit 0;;
+    -*) echo "'$1'?"; echo "$usage"; exit 1;;
+    *) infiles="$infiles ""$1";;
+  esac
+  shift
+done
+
+for i in $infiles; do
+  if [ ! -f $i ]; then
+    echo could not find $i
+    exit 1
+  fi
+done
+
+tmpfile=~/tmp/translating.tmp
+outfile=~/tmp/translated
+keyfile=~/tmp/translated.keys
+rm -f $outfile $keyfile $tmpfile
+
+if ! ${keys} || ${lines}; then
+  echo Found:
+  grep -nHo ">\([a-zA-Z ]\+\)<\|^[ ]\+[a-zA-Z]\+[ ]\+" $infiles |sed -e 's/[<>]//g' -e 's/^[ ]*//g' |sort -u
+  echo ''
+fi
+grep -o ">\([a-zA-Z ]\+\)<\|^[ ]\+[a-zA-Z]\+[ ]\+" $infiles |sed -e 's/[<>]//g' -e 's/^[ ]*//g' |sort -u > $tmpfile
+
+
+
+while read line; do
+  # save initial string
+  value="$line"
+  # lowercase
+  line=${line,,}
+  # remove spaces
+  line=${line// /_}
+  # remove special chars
+  line=$(echo $line |sed 's/\W//g')
+  # set yml key
+  key=$line
+
+  echo '' >>$outfile
+  echo "$translated$key" >>$outfile
+  echo $value >>$outfile
+  echo '{{'"'"$translated$key"'"' | translate}}' >>$outfile
+  echo $key: \"$value\" >>$keyfile
+done <$tmpfile
+
+rm $tmpfile
+if ! ${keys}; then
+  cat $outfile
+else
+  cat $keyfile
+fi

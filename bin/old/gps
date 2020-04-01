@@ -1,0 +1,14 @@
+usage="$(basename $0) [on | off | get]
+"
+case $1 in
+ on) su -c 'settings put secure location_providers_allowed gps,wifi,network';;
+ off) su -c 'settings put secure location_providers_allowed " "';;
+ get) 
+   su -c dumpsys location |grep -o -e '-*[0-9.]\+,-*[0-9.]\+' |sort -u
+ ;;
+esac
+#case $1 in
+# all) su -c dumpsys location |tee location.dump;;
+# m) su -c dumpsys location |grep -o -e '-*[0-9.]\+,-*[0-9.]\+' |sort -u;;
+# '') su -c dumpsys location |grep gps |grep -o 'gps -*[0-9.]\+,*-*[0-9.]\+';;
+#esac

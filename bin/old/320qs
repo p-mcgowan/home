@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo Trying: "http://goo.gl/forms/$1"
+google-chrome "http://goo.gl/forms/$1"

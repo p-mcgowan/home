@@ -1,0 +1,11 @@
+#!/bin/bash
+
+echo
+for i in {1..80}; do
+  if [ $(( $i % 5 )) == 0 ]; then
+    echo -n '|'
+  else
+    echo -n .
+  fi
+done
+ echo

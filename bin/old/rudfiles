@@ -1,0 +1,13 @@
+#!/bin/bash
+
+latex $1.tex&&
+dvipdfm $1.dvi&&
+mv $1.aux ~/rudfiles/texouts/&&
+mv $1.dvi ~/rudfiles/texouts/&&
+mv $1.log ~/rudfiles/texouts/&&
+#mv $1.pdf ~/rudfiles/&&
+gnome-open ~/rudfiles/$1.pdf
+if [ -a ~/rudfiles/texput.log ];
+then
+	mv texput.log ~/rudfiles/texouts/
+fi

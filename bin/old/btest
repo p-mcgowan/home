@@ -1,0 +1,47 @@
+#!/bin/bash
+
+blocks=\
+"standings boxscores leader leaders suspensions registration schedule slideshow teams sponsors delete"
+# too complicated
+# "image facebook youtube custom_section"
+# pushed
+# "hot_streaks instagram linemate_chemistry power_rankings team_finder twitter updates"
+
+if [ "$1" == "-h" ] || [ $# == 0 ]; then
+  echo $blocks
+  exit 0
+fi
+if [ -z "$1" ] || ! [[ $blocks =~ ^.*$1.*$ ]]; then
+  echo Invalid block: \'$1\'. Try $(basename $0) -h.
+  exit 1
+fi
+if ! [ -z "$2" ]; then
+  content_data='"content_data":{"'$2'":"'$3'"},'
+fi
+# registration season winter1
+# leader leader_type point_leaders
+
+# data1="{\"column\":\"1\", \"content_type\":\"$1\", $content_data \"order\":\"1\", \"row\":\"1\"}"
+# echo $data1
+# exit 0
+
+(
+  uuids=$(hcapi get -u 'cms/organizations/ice6046/pages/six/blocks' |grep '^\ \ \ \ \ \ \ \ "uuid' |cut -d'"' -f4)
+
+  for uuid in $uuids; do
+    hcapi -R DELETE -u "cms/organizations/ice6046/pages/six/blocks/$uuid"
+  done
+  if [ "$1" == "delete" ]; then
+    exit 0
+  fi
+
+  data1="{\"column\":\"1\", \"content_type\":\"$1\", $content_data \"order\":\"1\", \"row\":\"1\"}"
+  data2="{\"column\":\"2\", \"content_type\":\"$1\", $content_data \"order\":\"1\", \"row\":\"1\"}"
+  data3="{\"column\":\"1\", \"content_type\":\"$1\", $content_data \"order\":\"1\", \"row\":\"2\"}"
+  data4="{\"column\":\"1\", \"content_type\":\"$1\", $content_data \"order\":\"1\", \"row\":\"3\"}"
+
+  hcapi post -u "cms/organizations/ice6046/pages/six/blocks/" -d "$data1"
+  hcapi post -u "cms/organizations/ice6046/pages/six/blocks/" -d "$data2"
+  hcapi post -u "cms/organizations/ice6046/pages/six/blocks/" -d "$data3"
+  hcapi post -u "cms/organizations/ice6046/pages/six/blocks/" -d "$data4"
+) &> ~/tmp/blocktest.log

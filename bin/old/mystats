@@ -1,0 +1,108 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+names=(\
+"goals (g)                  " \
+"assists (a)                " \
+"goals + assists (pts)      " \
+"penalty mins (pim)         " \
+"powerplay goals (pp)       " \
+"short handed goals (sh)    " \
+"game winning goals (gw)    " \
+"shots (s)                  " \
+"goals / shots (spct)       " \
+"even str points (esp)      " \
+"short handed points (shp)  " \
+"power play points (ppp)    " \
+"home ice points (hmp)      " \
+"games (gm)                 " \
+"points per game (pg)       ")
+
+g=0
+a=1
+pts=2
+pim=3
+pp=4
+sh=5
+gw=6
+s=7
+spct=8
+esp=9
+shp=10
+ppp=11
+hmp=12
+gm=13
+pg=14
+
+shopt -s extglob
+stat='+(g|a|pim|pp|sh|gw|s|esp|shp|ppp|hmp|gm)'
+
+read line <~/mystats
+stats=($line)
+
+# Set args to lowercase
+arg=${1,,}
+
+function getStats() {
+  stats[pts]=$((${stats[g]} + ${stats[a]}))
+  stats[spct]=$((${stats[g]} * 100 / ${stats[s]}))
+  stats[spct]="0.${stats[spct]}"
+  stats[pg]=$((${stats[pts]} * 100 / ${stats[gm]}))
+  stats[pg]="0.${stats[pg]}"
+}
+
+usage="\
+usage: $(basename $0) [STAT [VAL]]
+"
+
+case $# in
+  1)
+    if [ $1 == -h ]; then
+      echo "$usage"
+      exit 0
+    fi
+    echo "${names[$1]} ${stats[$1]}"
+    exit 0
+  ;;
+  0)
+    getStats
+    for ((i = 0; i < ${#stats[*]}; i++)); do
+      echo "${names[$i]} ${stats[$i]}"
+    done
+    exit 0
+  ;;
+esac
+
+while [ ! -z $1 ]; do
+  case $1 in
+    $stat) 
+      if [ -z $2 ]; then
+        echo "$usage"
+        exit 1
+      fi
+      if [[ ! $2 =~ [0-9]+ ]]; then
+        echo invalid number $2
+        exit 1
+      fi
+      stats[$1]=$((${stats[$1]} + $2))
+      shift
+    ;;
+    *)
+      echo invalid stat $1
+      exit 1
+    ;;
+  esac
+  shift
+done
+
+rm ~/tmp/stats
+getStats
+
+for ((i = 0; i < ${#stats[*]}; i++)); do
+  echo "${names[$i]} ${stats[$i]}"
+  echo -n "${stats[$i]} " >>~/tmp/stats
+done
+
+read line <~/tmp/stats
+sed -i "1 s/.*/$line/" ~/mystats
+rm -f ~/tmp/mystats
+

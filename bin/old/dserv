@@ -1,0 +1,10 @@
+#!/bin/bash
+
+config=serverconfig.xml
+if [ "$1" != "" ]; then
+  config=$1.xml
+fi
+
+echo Starting server - config = $config
+~/.steam/steam/steamapps/common/7\ Days\ to\ Die\ Dedicated\ Server/startserver.sh -configfile=$config &
+echo Done

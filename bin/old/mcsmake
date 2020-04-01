@@ -1,0 +1,43 @@
+#!/bin/bash
+
+cd ~/ecerepos/MCServer
+mkdir -p buildLogs
+case "$1" in
+  "-d")
+    cd ~/ecerepos/MCServer/MCServer/ &&
+    ./MCServer_debug &&
+    exit 0 || exit 1
+  ;;
+  "-r")
+    cd ~/ecerepos/MCServer/MCServer/ &&
+    ./MCServer &&
+    exit 0 || exit 1
+  ;;
+  "-bd")
+    cmake . -DCMAKE_BUILD_TYPE=DEBUG |tee buildLogs/buildLog_debug && make |tee buildLogs/makeLog_debug &&
+    exit 0 || exit 1
+  ;;
+  "-br")
+    cmake . -DCMAKE_BUILD_TYPE=RELEASE |tee buildLogs/buildLog_release && make |tee buildLogs/makeLog_release &&
+    exit 0 || exit 1
+  ;;
+  "-bb")
+    cmake . -DCMAKE_BUILD_TYPE=DEBUG |tee buildLogs/buildLog_debug && make |tee buildLogs/makeLog_debug &&
+    cmake . -DCMAKE_BUILD_TYPE=RELEASE |tee buildLogs/buildLog_release && make |tee buildLogs/makeLog_release &&
+    exit 0 || exit 1
+  ;;
+  "-h")
+    echo -e "Commands:\n"\
+          " -d   Run debug server.\n"\
+          " -r   Run release server.\n"\
+          " -bd  Build debug server.\n"\
+          " -br  Build release server.\n"\
+          " -bb  Build debug and release servers.\n"\
+          " -h   Show this."
+    exit 0
+  ;;
+  *)
+    echo Nope.
+    exit 1
+  ;;
+esac

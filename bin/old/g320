@@ -1,0 +1,7 @@
+#!/data/data/com.termux/files/usr/bin/bash 
+
+if [ "$1" == "-l" ]; then
+  ssh pat@$PCRFTL 'bash ~/bin/google -c -b 320'
+else
+  gnet -c ssh pat@$PCRFT 'bash ~/bin/google -c -b 320'
+fi

@@ -1,0 +1,78 @@
+#!/bin/bash
+
+glupLog=~/tmp/glup.log
+
+case $1 in
+  -w | w) gulp watch &;;
+  -l | l) tail -f $glupLog;;
+  -b | b)
+    killall -9 -q gulp
+    echo Building ts, sass:
+    unbuffer gulp ts:build:community sass:build:community |tee $glupLog
+    notify-send "gulp built";;
+  -B | B)
+    killall -9 -q gulp
+    unbuffer gulp ts:build:community sass:build:community ts:build:la sass:build:la |tee $glupLog
+    notify-send "gulp built"
+    echo Done;;
+  -n |n)
+    err=false
+    gulp watch 2>&1 |while read gulpOut; do
+      if [[ "$gulpOut" =~ .*[Ee]rror.* ]]; then
+        err=true
+        unbuffer echo "glup: $gulpOut"
+      fi
+      if [[ "$gulpOut" =~ .*Done.*community ]]; then
+        err=false
+        gnome-terminal --geometry=80x3 -e "dialog --timeout 2 --inputbox $gulpOut 6 80"
+      fi
+      if ${err}; then
+        unbuffer echo "glup: $gulpOut"
+      fi
+    done && \
+    (killall -9 -q gulp;
+    echo "glup died") &;;
+  -r | r) gulp release;;
+  -a | a)
+    notify-send "glup" "Watching"; sleep 2; killall -9 -q notify-osd;
+    err=false
+    gulp watch 2>&1 |while read gulpOut; do
+      if [[ "$gulpOut" =~ .*[Ee]rror.* ]]; then
+        err=true
+        echo "glup: $gulpOut"
+      fi
+      if [[ "$gulpOut" =~ .*Done.*community ]]; then
+        notify-send "glup" "$gulpOut" && sleep 3 && killall -9 -q notify-osd
+      fi
+      if ${err}; then
+        notify-send "glup" "Error"
+      fi
+    done && \
+    (killall -9 -q gulp;
+    killall -9 -q notify-osd;
+    echo "glup died"
+    notify-send "glup" "Died") &;;
+  "")
+    killall -9 -q gulp; killall -9 -q notify-osd;
+    echo > $glupLog
+    notify-send "glup" "Watching"; sleep 2; killall -9 -q notify-osd;
+    err=false
+    unbuffer gulp watch 2>&1 |while read gulpOut; do
+      unbuffer echo $gulpOut >>$glupLog
+      if [[ "$gulpOut" =~ .*[Ee]rror.* ]]; then
+        err=true
+      fi
+      if [[ "$gulpOut" =~ .*Done.*community ]]; then
+        notify-send "glup" "$gulpOut" && sleep 3 && killall -9 -q notify-osd
+      fi
+      if ${err}; then
+        notify-send "glup" "Error"
+      fi
+      err=false
+    done && \
+    (killall -9 -q gulp;
+    killall -9 -q notify-osd;
+    notify-send "glup" "Died") &
+    ;;
+  *) echo "[w]atch, [b]uild:ts, build:[s]ass, [a]ll (notify and cli), [r]elease, [n]otify (terminal), notify-send (default)";;
+esac

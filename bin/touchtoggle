@@ -1,0 +1,52 @@
+#!/bin/bash
+
+
+toggleTouchpad() {
+    touchid=$(xinput list |grep Touchpad |awk '{print $6}' |sed 's/.*=//g')
+
+    setting=$(xinput list-props $touchid |grep 'Disable While Typing Enabled (' |awk '{print $6 $7}')
+
+    if [[ $setting =~ \(([0-9]+)\):([0-9]) ]]; then
+        propid=${BASH_REMATCH[1]}
+
+        if [ ${BASH_REMATCH[2]} == 1 ]; then
+            newval=0
+            echo Disabled touch lock
+        else
+            newval=1
+            echo Enabled touch lock
+        fi
+
+        xinput set-prop $touchid $propid $newval
+    fi
+}
+
+toggleTouchscreen() {
+    touchid=$(xinput list |grep 'Finger touch' |awk '{print $8}' |sed 's/.*=//g')
+
+    setting=$(xinput list-props $touchid |grep 'Device Enabled' |awk '{print $4}')
+
+    if [[ $setting == 1 ]]; then
+        xinput disable $touchid
+        echo Disabled touch screen
+    else
+        xinput enable $touchid
+        echo Enabled touch screen
+    fi
+}
+
+usage='Usage: '$(basename $0)' <option>
+options:
+  s, -s, --screen, screen    Toggle touch screen
+  p, -p, --pad, pad          Toggle touch pad'
+
+if [ -z $1 ]; then
+    echo "$usage"
+    exit 1
+fi
+
+case $1 in
+    s | -s | --screen | screen) toggleTouchscreen ;;
+    p | -p | --pad | pad) toggleTouchpad ;;
+    *) echo -e "Unknown option $1\n"; echo "$usage"; exit 1 ;;
+esac

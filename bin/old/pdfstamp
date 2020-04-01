@@ -1,0 +1,7 @@
+#!/bin/bash
+
+if [ $# != 3 ]; then
+  echo "Usage: $(basename $0) fileBottom fileTop output"
+  exit 2
+fi
+pdftk $1 stamp $2 output $3

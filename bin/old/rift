@@ -1,0 +1,4 @@
+#! /bin/bash
+sudo wine ~/.wine/drive_c/Program\ Files/RIFT/riftpatchlive.exe &
+
+

@@ -1,0 +1,10 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+#mkdir -p ~/.ssh
+echo 'mkdir -p ~/.ssh'
+echo 'dropbearkey -t rsa -f ~/.ssh/id_rsa'
+#dropbearkey -t rsa -f ~/.ssh/id_rsa && \
+#echo 'dropbearkey -y -f ~/.ssh/id_rsa | sed -n 2p > ~/.ssh/id_rsa.pub' && \
+echo 'dropbearkey -y -f ~/.ssh/id_rsa | sed -n 2p > ~/.ssh/id_rsa.pub'
+#dropbearkey -y -f ~/.ssh/id_rsa | sed -n 2p > ~/.ssh/id_rsa.pub
+

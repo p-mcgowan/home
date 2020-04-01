@@ -1,0 +1,13 @@
+#!/bin/bash
+mkdir -p $1/
+latex $1.tex&&
+dvipdfm $1.dvi&&
+mv $1.aux $1/&&
+mv $1.dvi $1/&&
+mv $1.log $1/&&
+mv $1.pdf $1/&&
+gnome-open $1/$1.pdf
+if [ -a texput.log ];
+then
+	mv texput.log $1/
+fi

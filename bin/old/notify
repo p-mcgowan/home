@@ -1,0 +1,54 @@
+#!/bin/bash
+
+
+msg=${1-"Hello?"}
+# dialog --timeout 1 --inputbox "Run: " 24 80 2>>/dev/null
+# dialog --no-lines --timeout 1 --no-shadow --cr-wrap --begin 1 1 --msgbox $msg 3 $((${#msg} + 4))
+
+# dialog --inputbox "$msg" 24 80
+dialog --timeout 2 --inputbox $msg 6 80 2>>/dev/null
+# gnome-terminal --geometry="$((${#msg} + 4))x3" -e "dialog --timeout 2 --begin 1 1 --inputbox $msg 6 80 2>>/dev/null &"
+#3 80 $((${#msg} + 4))
+
+#!/bin/bash
+
+# # Cleanup on cancel
+# trap "rm -f $input nohup.out ~/tmp/qt.tmp; exit" SIGHUP SIGINT SIGTERM
+
+# # Write commands out to a script then nohup it to ensure it finished what it
+# # needs to do
+# if [ "$(uname -s)" == "Linux" ]; then
+#     input=~/tmp/quickterm.input
+#     dialog=dialog
+# else
+#     input=$(dirname $BASH_SOURCE)/quickterm.input
+#     dialog=gdialog
+# fi
+
+# # Pre-clean
+# rm -f "$input" "nohup.out" "~/tmp/qt.tmp"
+
+# # Source aliases and bashrc in the script
+# echo -e '. ~/.bashrc\n. ~/.bash_aliases\n' >$input
+
+# # Prompt for user input and store the response
+# $dialog --inputbox "Run: " 24 80 2>>$input
+# dialogResponse=$?
+
+# # Write out the script exit code when it finishes running
+# echo -e '\necho $? >~/tmp/qt.tmp' >> $input
+
+# case $dialogResponse in
+#   0) nohup sh $input;;
+#   #1);; # Cancel pressed
+#   #255);; # [ESC] key pressed
+# esac
+
+# # Get the script exit code
+# response=$(cat ~/tmp/qt.tmp)
+
+# # Tell us if it failed
+# case $response in
+#   0) ;;
+#   *) cat ~/nohup.out; echo "Error $response: press any key to continue"; read dummy;;
+# esac

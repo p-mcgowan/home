@@ -1,0 +1,12 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+port=${1-8888}
+
+su -c am start -a android.intent.action.VIEW -d http://127.0.0.1:$port
+
+# am start -a android.intent.action.VIEW -d http://www.${url/ /+}
+# am start -a android.intent.action.VIEW -d $*
+# am start -a android.intent.action.VIEW -t application/vnd.android.package-archive -d file:///sdcard/apkProjects/$NAME.apk
+# am start -a android.intent.action.MAIN -n org.me.$NAME/.MainActivity
+# am start -a android.intent.action.DELETE -d package:org.me.$NAME
+# am start -a android.intent.action.VIEW -d http://www.stackoverflow.com
