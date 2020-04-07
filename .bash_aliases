@@ -395,87 +395,6 @@ EOFUSAGE
   fi
 }
 
-# prints branches that are only local or remote
-# branch-status() {
-#   # branchStatus [compareTo]
-#   local compareTo=${1:-origin/development}
-#   declare -A localBranches
-#   declare -A remoteBranches
-#   declare -A onlyLocal
-#   declare -A onlyRemote
-#   declare -A localAndRemote
-#   local readingLocal=true
-#   while read branch; do
-#     if [[ $branch =~ remotes/origin/HEAD ]]; then
-#       readingLocal=
-#     else
-#       if [ "$readingLocal" == "true" ]; then
-#         localBranches["$branch"]="$branch"
-#         onlyLocal["$branch"]="$branch"
-#       else
-#         local shortName="${branch/remotes\/origin\//}"
-#         remoteBranches[$shortName]="$branch"
-#         if [ -n "${onlyLocal[$shortName]}" ]; then
-#           onlyLocal[$shortName]=
-#           localAndRemote[$shortName]="$shortName"
-#         else
-#           onlyRemote[$shortName]="$branch"
-#         fi
-#       fi
-#     fi
-#   done < <(git branch -a |sed 's/^[\*\ ]\ //g')
-
-#   echo comparing to $compareTo:
-#   echo
-#   echo onlyLocal
-#   for i in ${onlyLocal[*]}; do
-#     read ahead behind < <(git rev-list --left-right --count $i...$compareTo)
-#     local msg="even"
-#     if [ "$ahead" -ne 0 ] || [ "$behind" -ne 0 ]; then
-#       msg="-$behind/+$ahead"
-#     fi
-#     printf "  %-15s%s\n" "$msg" "$i"
-#   done
-
-#   echo
-#   echo onlyRemote
-#   for i in ${onlyRemote[*]}; do
-#     read ahead behind < <(git rev-list --left-right --count $i...$compareTo)
-#     local msg="even"
-#     if [ "$ahead" -ne 0 ] || [ "$behind" -ne 0 ]; then
-#       msg="-$behind/+$ahead"
-#     fi
-#     printf "  %-15s%s\n" "$msg" "$i"
-#   done
-
-#   echo
-#   echo localAndRemote
-#   for i in ${localAndRemote[*]}; do
-#     read ahead behind < <(git rev-list --left-right --count $i...$compareTo)
-#     local msg="even"
-#     if [ "$ahead" -ne 0 ] || [ "$behind" -ne 0 ]; then
-#       msg="-$behind/+$ahead"
-#     fi
-#     printf "  %-15s%s\n" "$msg" "$i"
-#   done
-# }
-
-# gmerge() {
-#   branch=$1
-#   if [ $# == 2 ]; then
-#     remote="$1"
-#     branch="$2"
-#   else
-#     remote="${2-$(echo $(git remote))}"
-#   fi
-#   if [[ "$remote" =~ \  ]]; then
-#     echo Ambiguous remote - aborting
-#     return 1
-#   fi
-#   echo Merging $remote $branch
-#   git merge $remote $branch
-# }
-
 glog() {
   local arg1="$1"
   shift
@@ -552,18 +471,6 @@ gcam() {
 }
 
 gcpush() {
-  # message=
-  # while [ -n "$1" ]; do
-  #   if [ "$1" == "-r" ]; then
-  #     remote="$2"
-  #     shift
-  #   else
-  #     message="$message $1"
-  #   fi
-  #   shift
-  # done
-  # git add -A
-  # git commit -am "$message"
   git add -A
   git commit -am "$*"
   gpush
@@ -600,6 +507,15 @@ if [ -f ~/.git-completion.bash ]; then
   __git_complete gkill _git_checkout
 fi
 
+new-repo() {
+  # eg: new-repo '{"name":"test-repo","private":true}'
+  local JSON="$1"
+  if [ ! -f ~/.ssh/github_repo_key ]; then
+    echo 'no git key'
+    exit 1
+  fi
+  curl https://api.github.com/user/repos -H 'Content-Type: application/json' -H "Authorization: token $(cat ~/.ssh/github_repo_key)" -d $JSON
+}
 
 ## Misc
 
