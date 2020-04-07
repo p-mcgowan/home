@@ -820,7 +820,7 @@ morning() {
       ptmux
     ;;
     *)
-      echo "[p|ps] [v|vc] [g|gs'']"
+      echo "[p|ps|v|vc|g|gs|d|dir]"
     ;;
   esac
 }
