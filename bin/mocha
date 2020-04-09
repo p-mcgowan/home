@@ -108,7 +108,7 @@ if [ -n "$TSNODE" ]; then
 else
   if ! [ -d dist ]; then
     echo no dist - building
-    bash ~/bin/watcherHelper --build || exit 1
+    watcherHelper --build || exit 1
     BUILD=
   fi
 
@@ -117,7 +117,7 @@ else
     if [ -z "$FORCE_BUILD" ] && [ $(ps aux |grep 'tsc.*watch' |wc -l) -gt 1 ]; then
       echo 'Skipping build, found tsc watch - use "-b|--build" to force'
     else
-      bash ~/bin/watcherHelper --build || exit 1
+      watcherHelper --build || exit 1
     fi
   fi
 
@@ -155,7 +155,7 @@ else
   fi
 
   if [ -n "$WATCH" ]; then
-    bash ~/bin/watcherHelper -D "npx mocha $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $files"
+    watcherHelper -D "npx mocha $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $files"
   else
     if [ -n "$INTERACTIVE" ]; then
       allTests=($files)
