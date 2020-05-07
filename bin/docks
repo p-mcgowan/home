@@ -26,10 +26,8 @@ options:
 
   Options:
     -o, --compose-args ARGS  Pass ARGS into docker build (only applies when -r is set)
-    -L, --no-local-fs        Don' try to find docker-compose-local-fs.yml
+    -L, --local-fs           Try to find docker-compose-local-fs.yml
     -h, --help               Show this menu"
-
-OPT_LOCAL=true
 
 confirm() {
   if [ -z "$YES" ]; then

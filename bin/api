@@ -13,8 +13,9 @@ Sends an HTTP request through curl to api server
 
 options:
   -X, --request METHOD        Use METHOD request (eg PUT, DELETE)
-  get, post, delete, put,     Shortcuts for -X METHOD
-  head, options
+
+  patch, get, post, delete,   Shortcuts for -X METHOD
+  put, head, options
 
   -u, --url URL               Append URL to saved baseUrl
   -b, --base-url BASEURL      Use BASEURL as the base url for this request only
@@ -86,7 +87,7 @@ cookieHeaderLine=$(($authHeaderKeyLine + 7))
 authHeaderKey="Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.jwtpayload.5jnhoe8wP4vdNXHcY21X75RHXjiSN_PSrVZLn2O-8NM"
 authHeader="${authHeaderKey}eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.jwtpayload.M-IQ7HOXh3Y4c_VNZf1yeLae9XtlMBYyKVM3EXHMOyI"
 userHeader="admin@example.dev:password"
-urlHeader="https://app.example.io/api/"
+urlHeader="authentication-service.test"
 reauthUrl="api.test/graphql"
 dataTokenString="accessToken"
 defaultHeaders=""
@@ -235,7 +236,7 @@ while [ ! -z "$1" ]; do
       method="${1^^}"
     ;;
 
-    get | post | delete | put | head | options)
+    get | post | delete | put | head | options | patch)
       method="${1^^}"
     ;;
 

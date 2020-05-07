@@ -43,6 +43,7 @@ goto() {
     [port]="~/source/portfolio/"
     [if]="~/source/ifarsh"
     [ib]="~/source/isarbits"
+    [dsd]="~/source/acrontum/bmw/dsd"
   )
 
   if [ -z "$1" ]; then
@@ -222,11 +223,36 @@ ipinfo() {
 ## Git
 
 alias tags='git fetch --tags && git tag --list |sort -Vr'
-alias gdiff="git diff -- ':(exclude)**/package-lock.json' ':(exclude)package-lock.json' ':(exclude)**/yarn.lock'"
+gdiff() {
+  args=
+  files=
+  for arg in $@; do
+    if [ ${arg:0:1} == '-' ]; then
+      args="${args} ${arg}"
+    else
+      files="${files} ${arg}"
+    fi
+  done
+
+  git diff $args -- ':(exclude)**/package-lock.json' ':(exclude)package-lock.json' ':(exclude)build/' ':(exclude).openapi-nodegen/' $files
+}
 alias gst='git status'
 alias ghist='git log --follow -p --'
-alias gfetch='git fetch --prune origin 'refs/tags/*:refs/tags/*' && git fetch --all --prune --tags'
-alias gbranchprune='git fetch -a && git branch -vv | grep ": gone]" | awk "{print $1}" | xargs -r git branch -d'
+alias gfetch='git fetch --all --prune --tags --prune-tags --keep'
+gbranchprune() {
+  local toDelete=$(git fetch -a && \
+  git branch -vv | \
+  grep -o ' [^ ]\+ [a-f0-9]\+ \[.*: gone]' | \
+  awk '{print $1}')
+
+  if [ -n "$toDelete" ]; then
+    echo "$toDelete"
+    read -p "Delete these branches [y/N]?" ans
+    if [ "${ans,,}" == 'y' ] || [ "${ans,,}" == 'yes' ]; then
+      git branch -d $toDelete
+    fi
+  fi
+}
 alias gmerge='git merge'
 alias stash='echo "git stash --include-untracked"'
 # stash() {
@@ -274,7 +300,7 @@ options:
   -h, --help           Show this message
 EOFUSAGE
 )
-  local OPT_BRANCH=development
+  local OPT_BRANCH=develop
   local readingLocal=true
   local OPT_VERBOSE=
   local OPT_ONLY_BRANCH=
@@ -466,13 +492,13 @@ gpush() {
 }
 
 gcam() {
-  git add -A
+  git add -A && \
   git commit -am "$*"
 }
 
 gcpush() {
-  git add -A
-  git commit -am "$*"
+  git add -A && \
+  git commit -am "$*" && \
   gpush
 }
 
@@ -598,6 +624,26 @@ watchdo() {
 
 ## Work
 
+teamspeak() { /home/patrickmcgowan/work/TeamSpeak3-Client-linux_amd64/ts3client_runscript.sh "$@" &>~/tmp/teamspeak.log & }
+acrvpn() {
+  tmux at -t 'acrvpn' 2>/dev/null || \
+  tmux new-session -t 'acrvpn' \; \
+    send-keys "sudo ~/work/vpn" C-m \;
+}
+zs() {
+  cd $(git rev-parse --show-toplevel);
+  here=$(pwd);
+  project=$(basename $here);
+  if [[ "$here/" =~ -swagger/ ]]; then
+      target=${here/-swagger};
+  else
+      target="${here}-swagger";
+  fi;
+  if [ ! -d $target ]; then
+      target=${target/-swagger/_swagger};
+  fi;
+  cd $target
+}
 alias wh='watcherHelper'
 fast-mocha() {
   local splits=4
@@ -619,7 +665,7 @@ fast-mocha() {
       select-layout even-vertical
   )
 }
-alias updateNodeModules="npm i \$(npm outdated |awk 'NR > 1 {print $1\"@latest\"}')"
+alias npm-update="npm i \$(npm outdated |awk 'NR > 1 { printf(\"%s@latest\n\", \$1); }')"
 # JSON.stringify([].map.call(document.querySelectorAll('.opblock-summary'), e => e.innerText))
 alias routes="curl http://api.test/swagger/swagger-ui-init.js 2>/dev/null |grep '^\ \ \ \ \ \ \{1,9\}\"\/.*'"
 
@@ -643,7 +689,7 @@ hours-from() {
     HOURS_DATE="$(echo $FROM_DATE |sed 's/-//g')"
     hours ${HOURS_DATE:2}
     FROM_DATE=$(date -I -d "$FROM_DATE +1 days")
-    echo '--------------------------------------------'
+    echo -e '\033[1;31m--------------------------------------------\033[0;0m'
   done
 }
 hours() {
@@ -663,28 +709,24 @@ hours() {
 
   local here=$(pwd)
 
-  timesheet -d "$indate"
-
-  goto ps -q
-  log=$(gdaycom $indate $args)
-  if [ -n "$log" ]; then
-    echo -e "\nProj1"
-    echo "$log"
+  local timedata=$(timesheet -d "$indate")
+  if [[ $timedata =~ ^No ]]; then
+    echo -ne "\033[0;33m"
+  else
+    echo -ne "\033[1;33m"
   fi
+  echo -ne "${timedata}\033[0;0m\n"
 
-  goto vc -q
-  log=$(gdaycom $indate $args)
-  if [ -n "$log" ]; then
-    echo -e "\nProj2"
-    echo "$log"
-  fi
-
-  goto gs -q
-  log=$(gdaycom $indate $args)
-  if [ -n "$log" ]; then
-    echo -e "\nProj3"
-    echo "$log"
-  fi
+  goto dsd -q
+  find . -maxdepth 2 -type d -name .git |while read project; do
+    cd $(dirname $project)
+    log=$(gdaycom $indate $args)
+    if [ -n "$log" ]; then
+      echo -e "\n\033[1;36m$(basename $(pwd))\033[0;0m"
+      echo "$log"
+    fi
+    cd $here
+  done
 
   cd $here &>/dev/null
 }
@@ -790,24 +832,24 @@ client() {
   NODE_ENV=${NODE_ENV:-development} npm start
 }
 morning() {
-  slack
+  teams
+  teamspeak
+  google -b outlook -b gitlab -b jira
   # spotify
   case $1 in
-    p | -p | ps | --ps)
-      google -b ghps
-      vsub ps
-      pstmux
+    dsd)
+      pmux dsd
     ;;
-    v | -v | vc | --vc)
-      google -b ghvc
-      vsub vc
-      vctmux
-    ;;
-    '' | g | -g | gs | --gs)
-      google -b ghgs
-      vsub gs
-      gstmux
-    ;;
+    # v | -v | vc | --vc)
+    #   google -b ghvc
+    #   vsub vc
+    #   vctmux
+    # ;;
+    # '' | g | -g | gs | --gs)
+    #   google -b ghgs
+    #   vsub gs
+    #   gstmux
+    # ;;
     -d | --dir)
       shift
       cd ${1:-./}
@@ -820,7 +862,7 @@ morning() {
       ptmux
     ;;
     *)
-      echo "[p|ps|v|vc|g|gs|d|dir]"
+      echo "[dsd|dir]"
     ;;
   esac
 }
@@ -971,3 +1013,5 @@ spindex() {
       select-layout even-vertical
   }
 }
+
+source $HOME/.machinerc
