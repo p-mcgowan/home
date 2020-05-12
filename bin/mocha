@@ -106,8 +106,10 @@ if [ -n "$TSNODE" ]; then
   fi
   npx mocha $MOCHA_REPORTER --opts --file src/shared/test/mocha-startup.ts ./test/mocha.opts $files
 else
-  if ! [ -d dist ]; then
-    echo no dist - building
+  buildfolder=$(grep '"outDir": "' tsconfig.json |awk -F'"' '{ print($4); }')
+  echo "using buildfolder:$buildfolder"
+  if ! [ -d $buildfolder ]; then
+    echo no $buildfolder - building
     watcherHelper --build || exit 1
     BUILD=
   fi
@@ -121,12 +123,14 @@ else
     fi
   fi
 
-  cd dist
+  cd $buildfolder
 
   if [ $# == 0 ]; then
-    files=$(ls **/*.spec.js |grep -v '/dist/')
+    # files=$(ls **/*.spec.js |grep -v /$buildfolder/)
+    files=$(ls **/*.spec.js)
   else
-    files=$(ls **/*.spec.js |grep -v '/dist/' |grep -i $@)
+    # files=$(ls **/*.spec.js |grep -v '/$buildfolder/' |grep -i $@)
+    files=$(ls **/*.spec.js |grep -i $@)
     if [ -z "$files" ]; then
       echo No files found for "$@"
       exit 1
@@ -153,6 +157,18 @@ else
   elif [ -f ./test/mocha.opts ]; then
     MOCHA_OPTS="$OPTS --opts ./test/mocha.opts"
   fi
+
+  mochaRunner=../node_modules/mocha/bin/mocha
+  if [ ! -f $mochaRunner ]; then
+    mochaRunner=$(which -a mocha |grep -v "$HOME/bin/mocha")
+  fi
+  if [ -z "$mochaRunner" ]; then
+    echo no mocha found in
+    echo ../node_modules/mocha/bin/mocha
+    which -a mocha
+    exit 1
+  fi
+  echo using "mochaRunner:$mochaRunner"
 
   if [ -n "$WATCH" ]; then
     watcherHelper -D "npx mocha $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $files"
@@ -190,7 +206,7 @@ else
       for index in ${toRun[@]}; do
         allFiles="$allFiles ${allTests[$index]}"
       done
-      ../node_modules/mocha/bin/mocha $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $allFiles
+      $mochaRunner $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $allFiles
       # for file in $files; do
       #   read -p "Run $file [Y/n]?" ans
       #   if [ "${ans,,}" != 'n' ]; then
@@ -198,7 +214,7 @@ else
       #   fi
       # done
     else
-      ../node_modules/mocha/bin/mocha $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $files
+      $mochaRunner $MOCHA_REPORTER $mochaStartup $MOCHA_OPTS $files
     fi
   fi
 fi

@@ -1,0 +1,54 @@
+#!/bin/bash
+
+
+#1  '-jar',
+#2  '/home/patrickmcgowan/source/acrontum/bmw/dsd/technical-admin-panel/technical-admin-panel/node_modules/swagger-nodegen-cli/bin/swagger-codegen-cli-2.4.9.jar',
+#3  'generate',
+#4  '-i',
+#5  '.technical_admin_panel_backend_swagger/build/dsd_technical_admin_swagger_1.0.0.yml',
+#6  '-l',
+#7  'typescript-angular',
+#8  '-t',
+#9  '.swagger_templates',
+#10 '-o',
+#11 'src/app/api-backend'
+
+# java -jar <jar> generate -i <input> -l <links> [-t <tpls>] -o <output>
+
+
+injar=
+inyml=
+tpls=
+links=
+output=
+
+cmd="java"
+while [ -n "$1" ]; do
+  case $1 in
+    -jar) injar=$2 && cmd="$cmd -jar /tmp/jar.jar" && shift;;
+    -i) inyml=$2 && cmd="$cmd -i /tmp/yml.yml" && shift;;
+    -t) tpls=$2 && cmd="$cmd -t /tmp/$tpls" && shift;;
+    -l) links=$2 && cmd="$cmd -l $links" && shift;;
+    -o) output=$2 && cmd="$cmd -o /tmp/$output" && shift;;
+    -l) cmd="$cmd -l $2" && shift;;
+    *) cmd="$cmd $1";;
+  esac
+  shift
+done
+
+echo "injar:  $injar"
+echo "inyml:  $inyml"
+echo "tpls:   $tpls"
+echo "links:  $links"
+echo "output: $output"
+echo "cmd:    $cmd"
+
+docker run \
+  -v $injar:/tmp/jar.jar \
+  -v $PWD/$inyml:/tmp/yml.yml \
+  -v ${PWD}/$output:/tmp/$output \
+  $([[ -n $tpls ]] && echo "-v ${PWD}/$tpls:/tmp/$tpls" || echo "") \
+  --user="$(id -u):$(id -g)" \
+  --workdir=/tmp \
+  -it --rm --name java7 openjdk:7 \
+  bash -c "$cmd"

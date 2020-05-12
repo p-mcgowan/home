@@ -34,7 +34,6 @@ alias ...='cd ../.. && ls --color=auto'
 alias ....='cd ../../.. && ls --color=auto'
 alias l1='ls -1'
 alias lr='ls -R'
-alias gitroot='cd $(git rev-parse --show-toplevel)'
 
 goto() {
   declare -A locations=(
@@ -177,6 +176,7 @@ debbie() {
     ssh $DEBBIE
   fi
 }
+alias lip='hostname -I |awk "{ print(\$NF); }"'
 alias mip='curl -s whatismyip.io |grep -o "\([[:digit:]]\+\.\?\)\{3\}[[:digit:]]\+"'
 alias netscan='sudo nmap -snP 192.168.0.1/24'
 hotspot() {
@@ -222,6 +222,8 @@ ipinfo() {
 
 ## Git
 
+alias gitroot='cd $(git rev-parse --show-toplevel)'
+alias gitdefault="git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print($2); }'"
 alias tags='git fetch --tags && git tag --list |sort -Vr'
 gdiff() {
   args=
@@ -238,6 +240,7 @@ gdiff() {
 }
 alias gst='git status'
 alias ghist='git log --follow -p --'
+alias ghistall='git log --follow --all -p --'
 alias gfetch='git fetch --all --prune --tags --prune-tags --keep'
 gbranchprune() {
   local toDelete=$(git fetch -a && \
@@ -254,39 +257,29 @@ gbranchprune() {
   fi
 }
 alias gmerge='git merge'
-alias stash='echo "git stash --include-untracked"'
-# stash() {
-#   if [ $# == 0 ]; then
-#     echo "stash all with 'stash --'"
-#     echo "stash files 'stash file [...file]'"
-#     return
-#   fi
-#   if [ $1 == '--' ]; then
-#     echo "stashing all"
-#     git stash --include-untracked
-#     return
-#   fi
-#   echo "stashing $# files"
-#   # preserve any previously added
-#   git commit -m 'added'
-#   local DIDADD=$?
-#   # add everything
-#   git add -A
-#   # unstage stash targets
-#   git reset -- $*
-#   # add rest (temp)
-#   # TODO: put branch and commit here - shows up on stash list
-#   git commit -m 'na'
-#   # stash targets
-#   git stash --include-untracked
-#   # reset other files
-#   git reset HEAD~
-#   # re-add previously added (if any)
-#   if [ $DIDADD -eq 0 ]; then
-#     git reset --soft HEAD~
-#   fi
-#   git status
-# }
+# alias stash='echo "git stash --include-untracked"'
+stash() {
+  # stash staged, unstaged, untracked
+  # --keep-index, --no-keep-index
+  if [ $# == 0 ]; then
+    echo "stash all with 'stash --'"
+    echo "stash files 'stash file [...file]'"
+    return
+  fi
+
+  branch=$(git rev-parse --abbrev-ref HEAD)
+  commit=$(git log --oneline -n1 --decorate)
+
+  if [ $1 == '--' ]; then
+    echo "stashing all"
+    git stash push -m "$commit" --include-untracked
+    return
+  fi
+  echo "stashing $# files"
+
+
+  git stash push -m "$commit -- [$*]" --include-untracked $*
+}
 
 alias local-branch-compare='git branch -l |sed "s/\*\?\ \+//g" |while read branch; do echo $branch; git rev-list --left-right --count $branch...remotes/origin/$branch 2>/dev/null || echo; done'
 
@@ -300,10 +293,11 @@ options:
   -h, --help           Show this message
 EOFUSAGE
 )
-  local OPT_BRANCH=develop
+  local OPT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
   local readingLocal=true
   local OPT_VERBOSE=
   local OPT_ONLY_BRANCH=
+  OPT_BRANCH=${OPT_BRANCH:-develop}
 
   while [ -n "$1" ]; do
     case "$1" in
