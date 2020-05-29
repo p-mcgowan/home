@@ -2,6 +2,8 @@
 ## Format: alias <aliasName>='<commands>'
 # find . -path '**/node_modules' -prune -o -name package.json -print |while read file; do cd $(dirname $file) && npm run format && cd -; done
 ## Common:
+# TEMP
+alias doit="stash .gitignore && git checkout develop && git pull && git checkout -b enh/ignore-build-files && rm -rf .openapi-nodegen/ && git add .openapi-nodegen/ && git stash pop && git add . && git commit -m 'ignore build files'"
 
 alias eali='sub ~/.bash_aliases &>/dev/null || vim ~/.bash_aliases'
 alias sali='source ~/.bash_aliases'
@@ -37,12 +39,14 @@ alias lr='ls -R'
 
 goto() {
   declare -A locations=(
-    [googler]="~/source/googler/"
-    [extensions]="~/.local/share/gnome-shell/extensions/"
-    [port]="~/source/portfolio/"
-    [if]="~/source/ifarsh"
-    [ib]="~/source/isarbits"
-    [dsd]="~/source/acrontum/bmw/dsd"
+    [googler]=~/source/googler/
+    [extensions]=~/.local/share/gnome-shell/extensions/
+    [port]=~/source/portfolio/
+    [if]=~/source/ifarsh
+    [ib]=~/source/isarbits
+    [dsd]=~/source/acrontum/bmw/dsd
+    [dsdc]=~/source/acrontum/bmw/dsd/config
+    [gen]=~/source/acrontum/gen-playground
   )
 
   if [ -z "$1" ]; then
@@ -51,16 +55,38 @@ goto() {
     done
     return 0
   fi
-  if [ -z "${locations[$1]}" ]; then
-    echo "Could not find $1"
+
+  local quiet=
+  local target=
+  local check=
+
+  while [ -n "$1" ]; do
+    case $1 in
+      -q) quiet=true ;;
+      -c) check=true ;;
+      *) target="$1" && shift ;;
+    esac
+    shift
+  done
+
+  if [ -z "$target" ]; then
+    echo "No target specified"
     return 1
   fi
 
-  if [ "$2" == '-q' ]; then
-    eval cd ${locations[$1]}
-  else
-    eval cd ${locations[$1]} && ls
+  if [ -z "${locations[$target]}" ]; then
+    [ -z "$quiet" ] && [ -z "$check" ] && echo "Could not find $target"
+    return 1
   fi
+
+  if [ -n "$check" ]; then
+    echo ${locations[$target]}
+    return 0
+  fi
+
+  eval cd ${locations[$target]}
+  [ -z "$quiet" ] && ls
+  return 0
 }
 
 
@@ -105,6 +131,7 @@ totem() { command totem "$@" &>~/tmp/totem.log & }
 postman() { /home/pat/programs/postman/postman $@ &>/dev/postman & }
 tor-browser() { /home/pat/programs/tor-browser_en-US/Browser/start-tor-browser --detatch $@ &>~/tmp/tor.log & }
 alias tweaks='gnome-tweak-tool 2>~/tmp/tweaks.log &'
+
 
 ## Gaming
 
@@ -219,12 +246,14 @@ ipinfo() {
   curl ipinfo.io/$1
   echo
 }
+alias restart-nginx='sudo sh -c "nginx -t && service nginx restart"'
 
 ## Git
 
 alias gitroot='cd $(git rev-parse --show-toplevel)'
 alias gitdefault="git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print($2); }'"
 alias tags='git fetch --tags && git tag --list |sort -Vr'
+alias stp='git stash apply'
 gdiff() {
   args=
   files=
@@ -243,18 +272,26 @@ alias ghist='git log --follow -p --'
 alias ghistall='git log --follow --all -p --'
 alias gfetch='git fetch --all --prune --tags --prune-tags --keep'
 gbranchprune() {
-  local toDelete=$(git fetch -a && \
-  git branch -vv | \
-  grep -o ' [^ ]\+ [a-f0-9]\+ \[.*: gone]' | \
-  awk '{print $1}')
+  if [ -z "$1" ]; then
+    git fetch --all --prune --tags --prune-tags --keep
+  fi
+  local toDelete=$(git branch -vv | grep -o ' [^ ]\+ [a-f0-9]\+ \[.*: gone]' | awk '{print $1}')
 
   if [ -n "$toDelete" ]; then
+    echo "Found branches which were deleted on the remote:"
     echo "$toDelete"
     read -p "Delete these branches [y/N]?" ans
     if [ "${ans,,}" == 'y' ] || [ "${ans,,}" == 'yes' ]; then
       git branch -d $toDelete
     fi
   fi
+  # master=$(gitdefault)
+  # git checkout $master
+  # git for-each-ref refs/heads/ "--format=%(refname:short)" | while read branch; do
+  #   mergeBase=$(git merge-base $master $branch) && \
+  #   [[ $(git cherry $master $(git commit-tree $(git rev-parse $branch\^{tree}) -p $mergeBase -m _)) == "-"* ]] && \
+  #   git branch -d $branch;
+  # done
 }
 alias gmerge='git merge'
 # alias stash='echo "git stash --include-untracked"'
@@ -288,6 +325,8 @@ branches() {
 usage: branches [options] [branch]
 options:
   -b, --branch BRANCH  Only compare to branch
+  -r, --remote         Only print remotes
+  -l, --local          Only print local
   -v, --verbose        Print short commit diff for branches
                        (bails when > 10 and -b not supplied)
   -h, --help           Show this message
@@ -297,13 +336,17 @@ EOFUSAGE
   local readingLocal=true
   local OPT_VERBOSE=
   local OPT_ONLY_BRANCH=
+  local OPT_ONLY_LOCAL=
+  local OPT_ONLY_REMOTE=
   OPT_BRANCH=${OPT_BRANCH:-develop}
 
   while [ -n "$1" ]; do
     case "$1" in
-      -v | --verbose) OPT_VERBOSE=true;;
-      -b | --branch) OPT_ONLY_BRANCH=$2; shift;;
-      -h | --help) echo "$USAGE"; return 0;;
+      -v | --verbose) OPT_VERBOSE=true ;;
+      -b | --branch) OPT_ONLY_BRANCH=$2; shift ;;
+      -r | --remote) OPT_ONLY_REMOTE=true ;;
+      -l | --local) OPT_ONLY_LOCAL=true ;;
+      -h | --help) echo "$USAGE"; return 0 ;;
       *)
         if [ $# == 1 ]; then
           OPT_BRANCH="$1"
@@ -332,18 +375,17 @@ EOFUSAGE
     echo "Did not find branch: $OPT_BRANCH"
     return 1
   else
-   # [ ${#matches[@]} -gt 1 ]; then
-    # local num=${#matches[@]}
-    # OPT_BRANCH=${matches[((num - 1))]}
     OPT_BRANCH=${matches[0]}
   fi
-  # echo "${matches[@]} -- ${matches[0]}"
 
   while read branch; do
       allBranches["$branch"]="$branch"
     if [[ $branch =~ remotes/origin/HEAD ]]; then
       readingLocal=
     else
+      if [[ $branch =~ remotes/ ]]; then
+        readingLocal=
+      fi
       if [ ${#branch} -gt $longestName ]; then
         longestName=${#branch}
       fi
@@ -406,6 +448,13 @@ EOFUSAGE
   }
 
   if [ -z "$OPT_ONLY_BRANCH" ]; then
+    if [ -n "$OPT_ONLY_LOCAL" ]; then
+      echo ${onlyLocal[@]}
+      return 0
+    elif [ -n "$OPT_ONLY_REMOTE" ]; then
+      echo ${remoteBranches[@]}
+      return 0
+    fi
     printf "\e[1;36mOnly Local  \e[0;33mOnly Remote\e[0m\n\n"
     while read branch; do
       doCompare $branch
@@ -564,6 +613,7 @@ alias chromelog='tail -f ~/.config/google-chrome/chrome_debug.log'
 alias pirate_search='node ~/source/programming/node/pirateSearch/pirate.js'
 alias streams='google -w patmcgowan.ca/apps/stream'
 alias vantime='date -d"9 hours ago" +"%y.%m.%d %H:%M"'
+alias own='sudo chown -R $(id -u):$(id -g)'
 crlfToLf() {
   sed -i 's/^M$//' $*
 }
@@ -584,7 +634,50 @@ ducksay() {
 }
 function fire! { echo -n '0-118-999-881-999-119-725'; sleep 2; echo 3; }
 instantServer() {
-  node -e "require('http').createServer((i, o, n) => { o.writeHead(200); o.end('mkay'); }).listen(${1:-8080});"
+  local port=${1:-${PORT:-8080}}
+  local spa=${2-true}
+  node -e "
+  const http = require('http');
+  const fs = require('fs');
+  const path = require('path');
+  const index = path.resolve(process.cwd(), 'index.html');
+  const conType = s => ({
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.xml': 'text/xml',
+    '.gif': 'image/gif',
+    '.jpeg': 'image/jpeg',
+    '.jpg': 'image/jpeg',
+    '.js': 'application/x-javascript',
+    '.txt': 'text/plain',
+    '.png': 'image/png',
+    '.ico': 'image/x-icon',
+    '.bmp': 'image/x-ms-bmp' }[path.extname(s)] || 'application/octet-stream');
+  http.createServer(async (i, o, n) => {
+    o.on('finish', () => {
+      let ip = i.headers['x-forwarded-for'] || i.connection.remoteAddress;
+      console.log(\`\${ip} \${i.method} \${i.url} => \${o.statusCode}\`);
+    });
+    const file = path.resolve(process.cwd(), (i.url || '').replace(/^\//, '').replace(/[?#].*/, ''));
+    const fExists = await fs.promises.access(file)
+      .then(() => true)
+      .catch(() => false);
+    if (fExists && fs.statSync(file).isFile()) {
+      o.setHeader('Content-Type', conType(file));
+      o.writeHead(200);
+      fs.createReadStream(file).pipe(o);
+    } else {
+      if ($spa) {
+        o.setHeader('Content-Type', 'text/html');
+        o.writeHead(200);
+        fs.createReadStream(index).pipe(o);
+      } else {
+        o.writeHead(404);
+        o.end();
+      }
+    }
+  }).listen($port, () => console.log('up on $port'));
+"
 }
 unicode() {
   read -p 'enter char(s): ' char;
@@ -624,12 +717,24 @@ acrvpn() {
   tmux new-session -t 'acrvpn' \; \
     send-keys "sudo ~/work/vpn" C-m \;
 }
+compose-logs() {
+  local composeFile=${1:-apps.compose.yml}
+  tmux at -t 'compose-logs' 2>/dev/null || {
+    if [ ! -f  "$composeFile" ]; then
+      echo compose file not found here && return 1
+    fi
+    tmux new-session -t 'compose-logs' \; \
+      send-keys "docker-compose -f $composeFile logs -f" C-m \;
+  }
+}
 zs() {
   cd $(git rev-parse --show-toplevel);
   here=$(pwd);
   project=$(basename $here);
   if [[ "$here/" =~ -swagger/ ]]; then
       target=${here/-swagger};
+  elif [[ "$here/" =~ _swagger/ ]]; then
+      target=${here/_swagger};
   else
       target="${here}-swagger";
   fi;
@@ -639,6 +744,7 @@ zs() {
   cd $target
 }
 alias wh='watcherHelper'
+alias dslogin='tail -n1 ~/work/notes |xargs echo -n |xclip && echo "middle clickable"'
 fast-mocha() {
   local splits=4
   if [ -n "$1" ]; then
@@ -712,7 +818,7 @@ hours() {
   echo -ne "${timedata}\033[0;0m\n"
 
   goto dsd -q
-  find . -maxdepth 2 -type d -name .git |while read project; do
+  find . -maxdepth 4 -type d -name .git |while read project; do
     cd $(dirname $project)
     log=$(gdaycom $indate $args)
     if [ -n "$log" ]; then
@@ -727,8 +833,6 @@ hours() {
 
 gdaycom() {
   if ! [ -z "$1" ]; then
-    # here="$(pwd)"
-    # goto ib -q
     local today=$(date +"%Y%m%d")
     local when="${today:0:-${#1}}$1"
     shift
@@ -832,6 +936,7 @@ morning() {
   # spotify
   case $1 in
     dsd)
+      psub dsd
       pmux dsd
     ;;
     # v | -v | vc | --vc)
@@ -857,6 +962,32 @@ morning() {
     ;;
     *)
       echo "[dsd|dir]"
+    ;;
+  esac
+}
+psub() {
+  case $1 in
+    '') [ -f *.sublime-project ] && sub *.sublime-project || echo 'no sublime-project here' ;;
+    *)
+      local target=$(goto -c $1)
+      if [ -n "$target" ] && [ -f $target/*.sublime-project ]; then
+        sub $target/*.sublime-project
+      elif [ -f $1/*.sublime-project ]; then
+        sub $1/*.sublime-project
+      else
+        echo "no sublime-project: $1/"
+      fi
+    ;;
+  esac
+}
+pmux() {
+  case $1 in
+    dsd)
+      goto dsd;
+      tmux new-session \; \
+        split-window -v \; \
+        send-keys -t0 'docks -u config' C-m \; \
+        select-pane -t1 \;
     ;;
   esac
 }
@@ -1006,6 +1137,37 @@ spindex() {
       send-keys "nvm use 10 && watcherHelper -vvvr ramrod" C-m \; \
       select-layout even-vertical
   }
+}
+
+zgoto() {
+  root=/home/patrickmcgowan/source/acrontum/bmw/dsd
+
+  case "$1" in
+    admin-panel-backend) path=admin-panel/admin-panel-backend;;
+    authentication) path=authentication/authentication;;
+    backend-main) path=frontdesk/backend_main;;
+    battery-service) path=battery-service/battery-service;;
+    check-control-messages) path=check-control-messages/check-control-messages;;
+    condition-based-service) path=condition-based-service/condition-based-service;;
+    fuel-system) path=fuel-system/fuel-system;;
+    historical-data) path=historical-data/historical-data;;
+    known-issue-service) path=known-issue-service/known-issue-service;;
+    market-tool-service) path=market-tool-service/market-tool-service;;
+    recommendations-service) path=recommendations-service/recommendations-service;;
+    reporting) path=reporting/reporting;;
+    scheduler-service) path=scheduler-service;;
+    service-partner) path=service-partner/service-partner;;
+    sim-card) path=sim_card/sim_card;;
+    technical-actions) path=technical-actions/technical-actions;;
+    technical-admin-panel-backend) path=technical-admin-panel/technical-admin-panel-backend;;
+    tires-machine-consumer) path=tires-machine-consumer/tires-machine-consumer;;
+    tires-machine-receiver) path=tires-machine-receiver/tires-machine-receiver;;
+    tires-service) path=tires-service/tires-service;;
+    user-management) path=user-management/user-management;;
+    *) echo nop && return 1;;
+  esac
+
+  cd $root/$path
 }
 
 source $HOME/.machinerc

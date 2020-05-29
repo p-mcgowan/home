@@ -140,5 +140,11 @@ if [ -f ~/.machinerc ]; then
   source ~/.machinerc
 fi
 
+if [ -d ~/.completions ]; then
+  for file in ~/.completions/*; do
+    source $file
+  done
+fi
+
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 export PATH=$PATH:$HOME/source/acrontum/bmw/dsd/scripts/

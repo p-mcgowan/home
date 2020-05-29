@@ -13,10 +13,11 @@ options:
     -t, --target CONTAINER  Target CONTAINER container
     -r, --regex REGEX       Target containers matching REGEX
     -p, --project PROJECT   Use PROJECT to select containers [ps|gs|vc]
-    -A, --all-containers    Target all containers
+    -a, --all-containers    Target all containers
+    -f, --compose-file      Set compose file
 
   Actions:
-    -f, --fire               Remove all containers and images completely
+    -F, --fire               Remove all containers and images completely
                              (implies --all-containers)
     -d, --down               Stop target containers
     -c, --clean-all          Remove stopped containers and stale / tmp images
@@ -83,14 +84,17 @@ buildContainers() {
   if [ -n "$OPT_LOCAL" ]; then
     COMPOSE_ARGS="-f docker-compose-local-fs.yml $COMPOSE_ARGS"
   fi
+  if [ -n "$COMPOSE_FILE" ]; then
+    COMPOSE_ARGS="-f $(basename $COMPOSE_FILE) $COMPOSE_ARGS"
+  fi
   if [ -n "$DEBUG" ]; then
     echo "building: "
     echo "cd $UP_WHERE"
-    echo "docker-compose $COMPOSE_ARGS up --remove-orphans -d --build"
+    echo "docker-compose $COMPOSE_ARGS up -d --build"
     return
   fi
   cd $UP_WHERE && \
-  docker-compose $COMPOSE_ARGS up --remove-orphans -d --build $* && \
+  docker-compose $COMPOSE_ARGS up -d --build $* && \
   cd - &>/dev/null
 }
 
@@ -125,6 +129,11 @@ getTargets() {
 
 getUpLocation() {
   local DIRNAME=
+
+  if [ -n "$COMPOSE_FILE" ]; then
+    echo "$(dirname $COMPOSE_FILE)"
+    return
+  fi
 
   if [ -z "$1" ] || [[ $1 =~ ^- ]] || [[ "$1" == "true" ]]; then
     if [ -n "$PROJECT" ]; then
@@ -290,6 +299,7 @@ while [ "${1:0:1}" == "-" ] && [ -z "$DONE" ]; do
     --all-containers) ALL_CONTAINERS=true ;;
     --down) DOWN=true ;;
     --fire) DESTROY=true ;;
+    --compose-file) COMPOSE_FILE="$1" && shift ;;
     --clean-all) CLEAN=true ;;
     --no-cache) CACHE="--no-cache" ;;
     --up)
@@ -319,11 +329,12 @@ while [ "${1:0:1}" == "-" ] && [ -z "$DONE" ]; do
       for ((i = 1; i < ${#ARG}; i++)); do
         case ${ARG:$i:1} in
           r) REGEX=$1 && shift ;;
-          A) ALL_CONTAINERS=true ;;
+          a | A) ALL_CONTAINERS=true ;;
           d) DOWN=true ;;
           p) PROJECT=$1 && shift ;;
           t) CONTAINER=$1 && shift ;;
-          f) DESTROY=true ;;
+          f) COMPOSE_FILE="$1" && shift ;;
+          F) DESTROY=true ;;
           c) CLEAN=true ;;
           n) CACHE="--no-cache" ;;
           u)
