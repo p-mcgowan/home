@@ -1,9 +1,4 @@
-## Console Aliases
-## Format: alias <aliasName>='<commands>'
-# find . -path '**/node_modules' -prune -o -name package.json -print |while read file; do cd $(dirname $file) && npm run format && cd -; done
 ## Common:
-# TEMP
-alias doit="stash .gitignore && git checkout develop && git pull && git checkout -b enh/ignore-build-files && rm -rf .openapi-nodegen/ && git add .openapi-nodegen/ && git stash pop && git add . && git commit -m 'ignore build files'"
 
 alias eali='sub ~/.bash_aliases &>/dev/null || vim ~/.bash_aliases'
 alias sali='source ~/.bash_aliases'
@@ -25,6 +20,9 @@ lp() {
     print
   }'
 }
+alias l1='ls -1'
+alias lr='ls -R'
+
 
 ## Navigation:
 
@@ -34,8 +32,6 @@ alias pics='cd ~/Pictures ;ls --color=auto'
 alias ..='cd .. && ls --color=auto'
 alias ...='cd ../.. && ls --color=auto'
 alias ....='cd ../../.. && ls --color=auto'
-alias l1='ls -1'
-alias lr='ls -R'
 
 goto() {
   declare -A locations=(
@@ -253,7 +249,6 @@ alias restart-nginx='sudo sh -c "nginx -t && service nginx restart"'
 alias gitroot='cd $(git rev-parse --show-toplevel)'
 alias gitdefault="git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print($2); }'"
 alias tags='git fetch --tags && git tag --list |sort -Vr'
-alias stp='git stash apply'
 gdiff() {
   args=
   files=
@@ -711,7 +706,7 @@ watchdo() {
 
 ## Work
 
-teamspeak() { /home/patrickmcgowan/work/TeamSpeak3-Client-linux_amd64/ts3client_runscript.sh "$@" &>~/tmp/teamspeak.log & }
+# teamspeak() { /home/patrickmcgowan/work/TeamSpeak3-Client-linux_amd64/ts3client_runscript.sh "$@" &>~/tmp/teamspeak.log & }
 acrvpn() {
   tmux at -t 'acrvpn' 2>/dev/null || \
   tmux new-session -t 'acrvpn' \; \
@@ -732,14 +727,19 @@ zs() {
   here=$(pwd);
   project=$(basename $here);
   if [[ "$here/" =~ -swagger/ ]]; then
-      target=${here/-swagger};
+    target=${here/-swagger};
   elif [[ "$here/" =~ _swagger/ ]]; then
-      target=${here/_swagger};
+    target=${here/_swagger};
   else
-      target="${here}-swagger";
+    target="${here}-swagger";
   fi;
   if [ ! -d $target ]; then
-      target=${target/-swagger/_swagger};
+    target=${target/-swagger/_swagger};
+
+    if [ ! -d $target ]; then
+      target=$(realpath ../*swagger)
+      target=${target/[\-_]swagger/}
+    fi
   fi;
   cd $target
 }
@@ -1142,29 +1142,57 @@ spindex() {
 zgoto() {
   root=/home/patrickmcgowan/source/acrontum/bmw/dsd
 
+  local backend=
+  local frontend=
+  local swagger=
   case "$1" in
-    admin-panel-backend) path=admin-panel/admin-panel-backend;;
-    authentication) path=authentication/authentication;;
-    backend-main) path=frontdesk/backend_main;;
-    battery-service) path=battery-service/battery-service;;
-    check-control-messages) path=check-control-messages/check-control-messages;;
-    condition-based-service) path=condition-based-service/condition-based-service;;
-    fuel-system) path=fuel-system/fuel-system;;
-    historical-data) path=historical-data/historical-data;;
-    known-issue-service) path=known-issue-service/known-issue-service;;
-    market-tool-service) path=market-tool-service/market-tool-service;;
-    recommendations-service) path=recommendations-service/recommendations-service;;
-    reporting) path=reporting/reporting;;
-    scheduler-service) path=scheduler-service;;
-    service-partner) path=service-partner/service-partner;;
-    sim-card) path=sim_card/sim_card;;
-    technical-actions) path=technical-actions/technical-actions;;
-    technical-admin-panel-backend) path=technical-admin-panel/technical-admin-panel-backend;;
-    tires-machine-consumer) path=tires-machine-consumer/tires-machine-consumer;;
-    tires-machine-receiver) path=tires-machine-receiver/tires-machine-receiver;;
-    tires-service) path=tires-service/tires-service;;
-    user-management) path=user-management/user-management;;
-    *) echo nop && return 1;;
+    admin-panel-backend) path=admin-panel/admin-panel-backend ;;
+    authentication) path=authentication/authentication ;;
+    backend-main) path=frontdesk/backend_main ;;
+    battery-service) path=battery-service/battery-service ;;
+    check-control-messages) path=check-control-messages/check-control-messages ;;
+    condition-based-service) path=condition-based-service/condition-based-service ;;
+    fuel-system) path=fuel-system/fuel-system ;;
+    historical-data) path=historical-data/historical-data ;;
+    known-issue-service) path=known-issue-service/known-issue-service ;;
+    market-tool-service) path=market-tool-service/market-tool-service ;;
+    recommendations-service) path=recommendations-service/recommendations-service ;;
+    reporting) path=reporting/reporting ;;
+    scheduler-service) path=scheduler-service ;;
+    service-partner) path=service-partner/service-partner ;;
+    sim-card) path=sim_card/sim_card ;;
+    technical-actions) path=technical-actions/technical-actions ;;
+    technical-admin-panel-backend) path=technical-admin-panel/technical-admin-panel-backend ;;
+    tires-machine-consumer) path=tires-machine-consumer/tires-machine-consumer ;;
+    tires-machine-receiver) path=tires-machine-receiver/tires-machine-receiver ;;
+    tires-service) path=tires-service/tires-service ;;
+    user-management) path=user-management/user-management ;;
+    *) echo nop && return 1 ;;
+  esac
+
+  case "$2" in
+    b | be | '');;
+    f | fe)
+      case $path in
+        admin-panel/admin-panel-backend | technical-admin-panel/technical-admin-panel-backend)
+          path=${path/-backend/}
+        ;;
+        frontdesk/backend_main)
+          path=${path/backend_main/frontend}
+        ;;
+        *) echo FE not found && return 1 ;;
+      esac
+    ;;
+    s | sw)
+      if [ -d "$root/${path}-swagger" ]; then
+        path="${path}-swagger"
+      elif [ -d "$root/${path}_swagger" ]; then
+        path="${path}_swagger"
+      else
+        echo swagger not found && return 1
+      fi
+    ;;
+    *) echo '[b, be, f, fe, s, sw]' && return 1 ;;
   esac
 
   cd $root/$path
