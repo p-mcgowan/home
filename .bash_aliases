@@ -42,7 +42,7 @@ goto() {
     [ib]=~/source/isarbits
     [dsd]=~/source/acrontum/bmw/dsd
     [dsdc]=~/source/acrontum/bmw/dsd/config
-    [gen]=~/source/acrontum/gen-playground
+    [gen]=~/source/acrontum/github
   )
 
   if [ -z "$1" ]; then
@@ -60,7 +60,7 @@ goto() {
     case $1 in
       -q) quiet=true ;;
       -c) check=true ;;
-      *) target="$1" && shift ;;
+      *) target="$1" ;;
     esac
     shift
   done
@@ -267,9 +267,12 @@ alias ghist='git log --follow -p --'
 alias ghistall='git log --follow --all -p --'
 alias gfetch='git fetch --all --prune --tags --prune-tags --keep'
 gbranchprune() {
-  if [ -z "$1" ]; then
-    git fetch --all --prune --tags --prune-tags --keep
-  fi
+  local force=-d
+  case $1 in
+    -f | --force | f | force) force=-D ;;
+    '') git fetch --all --prune --tags --prune-tags --keep ;;
+  esac
+
   local toDelete=$(git branch -vv | grep -o ' [^ ]\+ [a-f0-9]\+ \[.*: gone]' | awk '{print $1}')
 
   if [ -n "$toDelete" ]; then
@@ -277,9 +280,10 @@ gbranchprune() {
     echo "$toDelete"
     read -p "Delete these branches [y/N]?" ans
     if [ "${ans,,}" == 'y' ] || [ "${ans,,}" == 'yes' ]; then
-      git branch -d $toDelete
+      git branch $force $toDelete
     fi
   fi
+
   # master=$(gitdefault)
   # git checkout $master
   # git for-each-ref refs/heads/ "--format=%(refname:short)" | while read branch; do
@@ -314,150 +318,6 @@ stash() {
 }
 
 alias local-branch-compare='git branch -l |sed "s/\*\?\ \+//g" |while read branch; do echo $branch; git rev-list --left-right --count $branch...remotes/origin/$branch 2>/dev/null || echo; done'
-
-branches() {
-  local USAGE=$(cat <<EOFUSAGE
-usage: branches [options] [branch]
-options:
-  -b, --branch BRANCH  Only compare to branch
-  -r, --remote         Only print remotes
-  -l, --local          Only print local
-  -v, --verbose        Print short commit diff for branches
-                       (bails when > 10 and -b not supplied)
-  -h, --help           Show this message
-EOFUSAGE
-)
-  local OPT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-  local readingLocal=true
-  local OPT_VERBOSE=
-  local OPT_ONLY_BRANCH=
-  local OPT_ONLY_LOCAL=
-  local OPT_ONLY_REMOTE=
-  OPT_BRANCH=${OPT_BRANCH:-develop}
-
-  while [ -n "$1" ]; do
-    case "$1" in
-      -v | --verbose) OPT_VERBOSE=true ;;
-      -b | --branch) OPT_ONLY_BRANCH=$2; shift ;;
-      -r | --remote) OPT_ONLY_REMOTE=true ;;
-      -l | --local) OPT_ONLY_LOCAL=true ;;
-      -h | --help) echo "$USAGE"; return 0 ;;
-      *)
-        if [ $# == 1 ]; then
-          OPT_BRANCH="$1"
-          shift
-        else
-          echo "Unknown option '$1'"
-          echo "$USAGE"
-          return 1
-        fi
-      ;;
-    esac
-    shift
-  done
-
-  declare -A allBranches
-  declare -A localBranches
-  declare -A remoteBranches
-  declare -A onlyLocal
-  declare -A onlyRemote
-  declare -A localAndRemote
-  local longestName=0
-
-  matches=($(git branch -a |sed 's/\*\?\ \+//g' | grep "\b${OPT_BRANCH}\b"))
-
-  if [ ${#matches[@]} == 0 ]; then
-    echo "Did not find branch: $OPT_BRANCH"
-    return 1
-  else
-    OPT_BRANCH=${matches[0]}
-  fi
-
-  while read branch; do
-      allBranches["$branch"]="$branch"
-    if [[ $branch =~ remotes/origin/HEAD ]]; then
-      readingLocal=
-    else
-      if [[ $branch =~ remotes/ ]]; then
-        readingLocal=
-      fi
-      if [ ${#branch} -gt $longestName ]; then
-        longestName=${#branch}
-      fi
-      if [ "$readingLocal" == "true" ]; then
-        localBranches["$branch"]="$branch"
-        onlyLocal["$branch"]="$branch"
-      else
-        local shortName="${branch/remotes\/origin\//}"
-        remoteBranches[$shortName]="$branch"
-        if [ -n "${onlyLocal[$shortName]}" ]; then
-          onlyLocal[$shortName]=
-          localAndRemote[$shortName]="$shortName"
-        else
-          onlyRemote[$shortName]="$branch"
-        fi
-      fi
-    fi
-  done < <(git branch -a |sed 's/^[\*\ ]\ //g')
-
-  if [ -n "$OPT_ONLY_BRANCH" ]; then
-    if [ -n "${allBranches[$OPT_ONLY_BRANCH]}" ]; then
-      echo "${allBranches[$OPT_ONLY_BRANCH]}"
-      OPT_ONLY_BRANCH=${allBranches[$OPT_ONLY_BRANCH]}
-    else
-      echo "${allBranches[$OPT_BRANCH]}"
-      OPT_BRANCH=${allBranches[$OPT_BRANCH]}
-    fi
-  fi
-
-  doCompare() {
-    local branch="$1"
-
-    if ! [[ $branch =~ remotes/origin/HEAD ]]; then
-      local shortName="${branch/remotes\/origin\//}"
-      read ahead behind < <(git rev-list --left-right --count $branch...$OPT_BRANCH)
-      local msg="even"
-      if [ "$ahead" -ne 0 ] || [ "$behind" -ne 0 ]; then
-        msg=$'\e[0;91m-'"$behind"$'\e[0m/\e[92m'"+$ahead"$'\e[0m'
-      fi
-      local colour=
-      if [ -n "${onlyLocal[$shortName]}" ]; then
-        colour=$'\e[1;36m'
-      elif [ -n "${onlyRemote[$shortName]}" ]; then
-        colour=$'\e[0;33m'
-      else
-        if [[ $branch =~ remotes\/origin\/ ]]; then
-          return
-        fi
-      fi
-      printf "  $colour%-$((longestName + 2))s%s\e[0m\n" "$branch" "$msg"
-
-      if [ -n "$OPT_VERBOSE" ] && [ "$msg" != "even" ]; then
-        if [ $((behind + ahead)) -le 10 ]; then
-          git log --pretty=format:'%h %ad | %s' --date=short $branch...$OPT_BRANCH | sed 's/^/    /'
-          printf "\n"
-        fi
-        printf "\n"
-      fi
-    fi
-  }
-
-  if [ -z "$OPT_ONLY_BRANCH" ]; then
-    if [ -n "$OPT_ONLY_LOCAL" ]; then
-      echo ${onlyLocal[@]}
-      return 0
-    elif [ -n "$OPT_ONLY_REMOTE" ]; then
-      echo ${remoteBranches[@]}
-      return 0
-    fi
-    printf "\e[1;36mOnly Local  \e[0;33mOnly Remote\e[0m\n\n"
-    while read branch; do
-      doCompare $branch
-    done < <(git branch -a --sort=-committerdate |sed 's/^[\*\ ]\ //g')
-  else
-    doCompare $OPT_BRANCH
-  fi
-}
 
 glog() {
   local arg1="$1"
@@ -817,15 +677,16 @@ hours() {
   fi
   echo -ne "${timedata}\033[0;0m\n"
 
-  goto dsd -q
-  find . -maxdepth 4 -type d -name .git |while read project; do
-    cd $(dirname $project)
-    log=$(gdaycom $indate $args)
-    if [ -n "$log" ]; then
-      echo -e "\n\033[1;36m$(basename $(pwd))\033[0;0m"
-      echo "$log"
-    fi
-    cd $here
+  for projectsDir in dsd gen; do
+    goto $projectsDir -q
+    for project in $(find $PWD -maxdepth 4 -type d -name .git 2>/dev/null); do
+      cd $(dirname $project)
+      log=$(gdaycom $indate $args)
+      if [ -n "$log" ]; then
+        echo -e "\n\033[1;36m$(basename $(pwd))\033[0;0m"
+        echo "$log"
+      fi
+    done
   done
 
   cd $here &>/dev/null
@@ -931,7 +792,7 @@ client() {
 }
 morning() {
   teams
-  teamspeak
+  ts3
   google -b outlook -b gitlab -b jira
   # spotify
   case $1 in

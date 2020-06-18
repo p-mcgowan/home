@@ -8,7 +8,7 @@ import sys
 from subprocess import Popen, PIPE
 
 import dbus
-import lyricwikia
+# import lyricwikia
 
 
 def main():
@@ -37,8 +37,8 @@ def main():
         show_album()
     elif args.playbackstatus:
         show_playback_status()
-    elif args.lyrics:
-        show_lyrics()
+    # elif args.lyrics:
+    #     show_lyrics()
     elif args.arturl:
         show_art_url()
     elif args.play:
@@ -136,14 +136,14 @@ def show_song_short():
     print(f'{title}')
 
 
-def show_lyrics():
-    try:
-        artist, title = get_song()
-        lyrics = lyricwikia.get_all_lyrics(artist, title)
-        lyrics = ''.join(lyrics[0])
-        print(lyrics)
-    except BaseException:
-        print('lyrics not found')
+# def show_lyrics():
+#     try:
+#         artist, title = get_song()
+#         lyrics = lyricwikia.get_all_lyrics(artist, title)
+#         lyrics = ''.join(lyrics[0])
+#         print(lyrics)
+#     except BaseException:
+#         print('lyrics not found')
 
 
 def show_artist():

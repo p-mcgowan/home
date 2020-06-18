@@ -84,13 +84,13 @@ cookieHeaderLine=$(($authHeaderKeyLine + 7))
 # they never span more than 1 line, as that will mess with the replacements
 # and / or script execution
 # HEADERLINE - keep this above the 'authHeaderKey' line
-authHeaderKey="Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.jwtpayload.5jnhoe8wP4vdNXHcY21X75RHXjiSN_PSrVZLn2O-8NM"
+authHeaderKey="Authorization: Bearer "
 authHeader="${authHeaderKey}eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.jwtpayload.M-IQ7HOXh3Y4c_VNZf1yeLae9XtlMBYyKVM3EXHMOyI"
 userHeader="admin@example.dev:password"
-urlHeader="http://dsd-tires-service:8000/"
+urlHeader="https://irene-dev.bmwgroup.net"
 reauthUrl="api.test/graphql"
 dataTokenString="accessToken"
-defaultHeaders=""
+defaultHeaders="-H 'Authorization: Bearer my.auth.bear' -k"
 cookieHeader=""
 
 username=$(echo $userHeader |cut -d':' -f1)
