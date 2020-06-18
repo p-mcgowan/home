@@ -850,6 +850,11 @@ pmux() {
         send-keys -t0 'docks -u config' C-m \; \
         select-pane -t1 \;
     ;;
+    *)
+    tmux new-session \; \
+      split-window -v \; \
+      select-pane -t0 \;
+    ;;
   esac
 }
 ptmux() {
