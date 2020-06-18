@@ -683,7 +683,7 @@ hours() {
       cd $(dirname $project)
       log=$(gdaycom $indate $args)
       if [ -n "$log" ]; then
-        echo -e "\n\033[1;36m$(basename $(pwd))\033[0;0m"
+        echo -e "\n\033[1;36m${projectsDir}@$(basename $(pwd))\033[0;0m"
         echo "$log"
       fi
     done
