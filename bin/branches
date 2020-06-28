@@ -58,7 +58,7 @@ while [ -n "$1" ]; do
     -b | --branch) OPT_ONLY_BRANCH=$2; shift ;;
     -r | --remote) OPT_ONLY_REMOTE=true ;;
     -l | --local) OPT_ONLY_LOCAL=true ;;
-    -h | --help) echo "$USAGE"; return 0 ;;
+    -h | --help) echo "$USAGE"; exit 0 ;;
     *)
       if [ $# == 1 ]; then
         OPT_BRANCH="$1"
@@ -66,7 +66,7 @@ while [ -n "$1" ]; do
       else
         echo "Unknown option '$1'"
         echo "$USAGE"
-        return 1
+        exit 1
       fi
     ;;
   esac
@@ -85,7 +85,7 @@ matches=($(git branch -a |sed 's/\*\?\ \+//g' | grep "\b${OPT_BRANCH}\b"))
 
 if [ ${#matches[@]} == 0 ]; then
   echo "Did not find branch: $OPT_BRANCH"
-  return 1
+  exit 1
 else
   OPT_BRANCH=${matches[0]}
 fi
@@ -131,10 +131,10 @@ fi
 if [ -z "$OPT_ONLY_BRANCH" ]; then
   if [ -n "$OPT_ONLY_LOCAL" ]; then
     echo ${onlyLocal[@]}
-    return 0
+    exit 0
   elif [ -n "$OPT_ONLY_REMOTE" ]; then
     echo ${remoteBranches[@]}
-    return 0
+    exit 0
   fi
   printf "\e[1;36mOnly Local  \e[0;33mOnly Remote\e[0m\n\n"
   while read branch; do

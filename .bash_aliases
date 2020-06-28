@@ -266,10 +266,28 @@ alias gst='git status'
 alias ghist='git log --follow -p --'
 alias ghistall='git log --follow --all -p --'
 alias gfetch='git fetch --all --prune --tags --prune-tags --keep'
+prune-local() {
+  branches
+  local branches=$(branches -l)
+  local del
+  if [ -z "$branches" ]; then
+    echo no branches to delete
+    return 0
+  fi
+  echo "Found local branches: $branches"
+  read -p 'Delete local branches [y/N]? ' del
+  if [ "${del,,}" == 'y' ] || [ "${del,,}" == 'yes' ]; then
+    git branch -D $branches
+  fi
+}
 gbranchprune() {
   local force=-d
   case $1 in
     -f | --force | f | force) force=-D ;;
+    -p | p | prune | --prune)
+      prune-local
+      return 0
+    ;;
     '') git fetch --all --prune --tags --prune-tags --keep ;;
   esac
 
@@ -566,13 +584,20 @@ watchdo() {
 
 ## Work
 
-# teamspeak() { /home/patrickmcgowan/work/TeamSpeak3-Client-linux_amd64/ts3client_runscript.sh "$@" &>~/tmp/teamspeak.log & }
 acrvpn() {
   tmux at -t 'acrvpn' 2>/dev/null || \
   tmux new-session -t 'acrvpn' \; \
     send-keys "sudo ~/work/vpn" C-m \;
 }
 compose-logs() {
+  if [ -n "$TMUX" ]; then
+    if tmux has-session -t compose-logs 2>/dev/null; then
+      tmux at -t 'compose-logs'
+    else
+      docker-compose -f ~/source/acrontum/bmw/dsd/config/apps.compose.yml logs -f
+    fi
+    return 0
+  fi
   local composeFile=${1:-apps.compose.yml}
   tmux at -t 'compose-logs' 2>/dev/null || {
     if [ ! -f  "$composeFile" ]; then
@@ -581,27 +606,6 @@ compose-logs() {
     tmux new-session -t 'compose-logs' \; \
       send-keys "docker-compose -f $composeFile logs -f" C-m \;
   }
-}
-zs() {
-  cd $(git rev-parse --show-toplevel);
-  here=$(pwd);
-  project=$(basename $here);
-  if [[ "$here/" =~ -swagger/ ]]; then
-    target=${here/-swagger};
-  elif [[ "$here/" =~ _swagger/ ]]; then
-    target=${here/_swagger};
-  else
-    target="${here}-swagger";
-  fi;
-  if [ ! -d $target ]; then
-    target=${target/-swagger/_swagger};
-
-    if [ ! -d $target ]; then
-      target=$(realpath ../*swagger)
-      target=${target/[\-_]swagger/}
-    fi
-  fi;
-  cd $target
 }
 alias wh='watcherHelper'
 alias dslogin='tail -n1 ~/work/notes |xargs echo -n |xclip && echo "middle clickable"'
@@ -793,7 +797,7 @@ client() {
 morning() {
   teams
   ts3
-  google -b outlook -b gitlab -b jira
+  google -b outlook -b jira
   # spotify
   case $1 in
     dsd)
@@ -1062,6 +1066,28 @@ zgoto() {
   esac
 
   cd $root/$path
+}
+
+zs() {
+  cd $(git rev-parse --show-toplevel);
+  here=$(pwd);
+  project=$(basename $here);
+  if [[ "$here/" =~ -swagger/ ]]; then
+    target=${here/-swagger};
+  elif [[ "$here/" =~ _swagger/ ]]; then
+    target=${here/_swagger};
+  else
+    target="${here}-swagger";
+  fi;
+  if [ ! -d $target ]; then
+    target=${target/-swagger/_swagger};
+
+    if [ ! -d $target ]; then
+      target=$(realpath ../*swagger)
+      target=${target/[\-_]swagger/}
+    fi
+  fi;
+  cd $target
 }
 
 source $HOME/.machinerc
