@@ -127,6 +127,8 @@ totem() { command totem "$@" &>~/tmp/totem.log & }
 postman() { /home/pat/programs/postman/postman $@ &>/dev/postman & }
 tor-browser() { /home/pat/programs/tor-browser_en-US/Browser/start-tor-browser --detatch $@ &>~/tmp/tor.log & }
 alias tweaks='gnome-tweak-tool 2>~/tmp/tweaks.log &'
+alias scli='spotifycli.py'
+alias resub='killall -9 sublime_text && sub'
 
 
 ## Gaming
@@ -562,7 +564,8 @@ unicode() {
 }
 watchdo() {
   FILE=$1
-  CMD=$2
+  shift
+  CMD=$*
   if [ -z "$FILE" ] || [ -z "$CMD" ]; then
     echo "usage: watch-do FILE CMD"
     return 1
@@ -570,10 +573,13 @@ watchdo() {
 
   LTIME=$(stat -c %Z "$FILE")
 
+  echo "will run '$CMD' on changes to '$FILE'"
+
   while true; do
     ATIME=$(stat -c %Z "$FILE")
 
     if [[ "$ATIME" != "$LTIME" ]]; then
+      echo "$CMD"
       eval $CMD
       LTIME=$ATIME
     fi
@@ -608,7 +614,18 @@ compose-logs() {
   }
 }
 alias wh='watcherHelper'
-alias dslogin='tail -n1 ~/work/notes |xargs echo -n |xclip && echo "middle clickable"'
+alias dslogin=$'awk \'NR==2 { printf($1); }\' ~/work/notes |xclip && echo "middle clickable"'
+alias dsl='dslogin'
+alias qnumber=$'qn=$(awk \'NR==1 { printf($1); }\' ~/work/notes); echo $qn |xclip && echo -e "$qn\nmiddle clickable"'
+kcc() {
+  [[ -z "$1" ]] && kubectl config get-contexts | awk -F '  +' '{
+    if ($1 == "*") {
+       printf("\033[0;1m%s  %s\033[0;0m\n", $2, $3);
+    } else {
+       printf("%s  %s\n", $2, $3);
+    }
+  }' |column -t || kubectl config use-context "$1"
+}
 fast-mocha() {
   local splits=4
   if [ -n "$1" ]; then
@@ -647,7 +664,7 @@ hours-from() {
 
   # read YEAR MON DAY <<<$(date -I |sed 's/-/ /g')
   # local TO_DATE=$(date -I |sed 's/-/ /g')
-  local TO_DATE=$(date -I)
+  local TO_DATE=$(date -I -d tomorrow)
 
   while [ "$FROM_DATE" != "$TO_DATE" ]; do
     HOURS_DATE="$(echo $FROM_DATE |sed 's/-//g')"
@@ -684,11 +701,15 @@ hours() {
   for projectsDir in dsd gen; do
     goto $projectsDir -q
     for project in $(find $PWD -maxdepth 4 -type d -name .git 2>/dev/null); do
+      if [ -f $(dirname $project)/../.gitmodules ] && grep -q $(basename $(dirname $project)) $(dirname $project)/../.gitmodules; then
+        continue
+      fi
+
       cd $(dirname $project)
       log=$(gdaycom $indate $args)
       if [ -n "$log" ]; then
         echo -e "\n\033[1;36m${projectsDir}@$(basename $(pwd))\033[0;0m"
-        echo "$log"
+        echo -e "$log"
       fi
     done
   done
@@ -697,6 +718,7 @@ hours() {
 }
 
 gdaycom() {
+  git config --global grep.extendedRegexp true
   if ! [ -z "$1" ]; then
     local today=$(date +"%Y%m%d")
     local when="${today:0:-${#1}}$1"
@@ -706,10 +728,7 @@ gdaycom() {
     local day=0${when:6:2}
     local fmtDate=$year-${month: -2}-${day: -2}
     # %h %ad | %s%d [%an]
-    # preserve colour if not ouputting to stdout
-    # git -c color.status=always status | less -REX
-    # git -c color.ui=always diff | less -REX
-    git -c color.ui=always log --after="$fmtDate 00:00" --before="$fmtDate 23:59" --all --author="p-mcgowan" --pretty=format:"%h %ad %s%d" --date=format:"%Y-%m-%d.%H:%M" $@
+    git log --color --after="$fmtDate 00:00" --before="$fmtDate 23:59" --all --author="p-mcgowan|Patrick McGowan" --pretty=format:"%C(auto)%h %C(dim)%ad %C(auto)%s%d" --date=format:"%Y-%m-%d %H:%M" $@
     # cd $here
   else
     echo 'usage: gdaycom [[YYYY]MM]DD'
@@ -797,7 +816,7 @@ client() {
 morning() {
   teams
   ts3
-  google -b outlook -b jira
+  google -b outlook -b jira -b ghme
   # spotify
   case $1 in
     dsd)
@@ -1069,24 +1088,46 @@ zgoto() {
 }
 
 zs() {
-  cd $(git rev-parse --show-toplevel);
-  here=$(pwd);
-  project=$(basename $here);
-  if [[ "$here/" =~ -swagger/ ]]; then
-    target=${here/-swagger};
-  elif [[ "$here/" =~ _swagger/ ]]; then
-    target=${here/_swagger};
-  else
-    target="${here}-swagger";
-  fi;
-  if [ ! -d $target ]; then
-    target=${target/-swagger/_swagger};
+  local usage="zs [b | f | s]
+swap folders
+"
 
-    if [ ! -d $target ]; then
-      target=$(realpath ../*swagger)
-      target=${target/[\-_]swagger/}
-    fi
-  fi;
+  if [ ! -d "$(git rev-parse --show-toplevel)/.git" ]; then
+    echo "not a git folder"
+    return 1
+  fi
+
+  local calledFrom=$(git rev-parse --show-toplevel)
+  local projectRoot=$(realpath "$calledFrom/..")
+
+  if [ -d $projectRoot/*swagger ]; then
+    local swaggerProject=$(basename $(find $projectRoot -maxdepth 1 -name *swagger))
+    local backendProject=${swaggerProject/[-_]swagger/}
+    local frontendProject=$projectRoot/$(ls $projectRoot |grep -v "$swaggerProject\|$backendProject")
+    local swaggerProject="$projectRoot/$swaggerProject"
+    local backendProject="$projectRoot/$backendProject"
+  fi
+
+  local target=
+  case "$1" in
+    s | -s | --swagger) target=$swaggerProject ;;
+    b | -b | --backend) target=$backendProject ;;
+    f | -f | --frontend) target=$frontendProject ;;
+    '')
+      case $calledFrom in
+        $frontendProject | $swaggerProject) target=$backendProject ;;
+        $backendProject) target=$swaggerProject ;;
+        *) echo "couldn't figure out where we are" && return 1 ;;
+      esac
+    ;;
+    *) echo "$usage" && return 1 ;;
+  esac
+
+  if [ -z "$target" ]; then
+    echo "couldn't figure out what to do"
+    return 1
+  fi
+
   cd $target
 }
 

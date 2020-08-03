@@ -1,5 +1,11 @@
 #!/bin/bash
 
+if [ "$1" == "-a" ]; then
+  for i in {0..110}; do
+    echo -e "\033[${i}m $i====$i \033[0m"
+  done
+  exit 0
+fi
 for i in {0..9}; do
   echo -e "\033[${i}m $i====$i \033[0m"
 done

@@ -193,15 +193,18 @@ options:
   case "$1" in
     -w | --watch)
       shift
-      local chrs=('─' '/' '─' '\' '|' '/')
+      local chrs=('▁' '▂' '▃' '▄' '▅' '▆' '▇' '█' '▇' '▆' '▅' '▄' '▃')
       local i=0
+      tput civis
+      trap 'tput cnorm' EXIT
       while true; do
         s=$(docker ps -a |awk -F '[[:space:]][[:space:]]+' '{ print $NF, "\t", $5, "\t", $6 }' |column -ts $'\t')
         clear;
         echo "$s"
-        echo ${chrs[(i++ % ${#chrs[*]})]}
-        # docker images
-        sleep 2
+        echo -n ${chrs[(i++ % ${#chrs[*]})]}
+        sleep 0.5
+        echo -ne "\r${chrs[(i++ % ${#chrs[*]})]}"
+        sleep 0.5
       done
     ;;
     -v | --verbose)

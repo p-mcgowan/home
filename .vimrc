@@ -29,7 +29,7 @@ set fileencoding=utf-8
 set fileformat=unix
 " source them aliases
 set shell=bash\ --login
-colorscheme desert
+colorscheme ron
 filetype on
 filetype plugin on
 filetype plugin indent on

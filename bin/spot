@@ -4,4 +4,4 @@ killall -9 spotify
 command spotify &>~/tmp/spotify.log &
 sleep 0.5
 xdotool search --onlyvisible --classname Spotify windowminimize
-spotifycli.py --play
+spotifycli.py --next

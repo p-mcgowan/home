@@ -32,7 +32,13 @@ doCompare() {
         return
       fi
     fi
-    printf "  $colour%-$((longestName + 2))s%s\e[0m\n" "$branch" "$msg"
+
+    if [ "$shortName" == "$thisBranch" ]; then
+      printf "> "
+    else
+      printf "  "
+    fi
+    printf "$colour%-$((longestName + 2))s%s\e[0m\n" "$branch" "$msg"
 
     if [ -n "$OPT_VERBOSE" ] && [ "$msg" != "even" ]; then
       if [ $((behind + ahead)) -le 10 ]; then
@@ -51,6 +57,7 @@ OPT_ONLY_BRANCH=
 OPT_ONLY_LOCAL=
 OPT_ONLY_REMOTE=
 OPT_BRANCH=${OPT_BRANCH:-develop}
+thisBranch=$(git rev-parse --abbrev-ref HEAD)
 
 while [ -n "$1" ]; do
   case "$1" in
@@ -126,7 +133,6 @@ if [ -n "$OPT_ONLY_BRANCH" ]; then
     OPT_BRANCH=${allBranches[$OPT_BRANCH]}
   fi
 fi
-
 
 if [ -z "$OPT_ONLY_BRANCH" ]; then
   if [ -n "$OPT_ONLY_LOCAL" ]; then

@@ -5,8 +5,8 @@ set nocompatible
 set runtimepath=\$VIMRUNTIME
 set nocp
 set ls=2
-set tabstop=4
-set shiftwidth=4
+set tabstop=2
+set shiftwidth=2
 set expandtab
 set ruler
 set incsearch
@@ -30,7 +30,7 @@ set fileencoding=utf-8
 set fileformat=unix
 " source them aliases
 set shell=bash\ --login
-colorscheme desert
+colorscheme ron
 filetype on
 filetype plugin on
 filetype plugin indent on
@@ -168,6 +168,10 @@ ENDBASHRC
   source $HOME/.bashrc
 else
   echo bashrc appears to be up-to-date
+fi
+
+if [ ! -f $HOME/.tmux.conf ]; then
+  echo "set -g mouse on" >$HOME/.tmux.conf
 fi
 
 packager=
