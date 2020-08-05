@@ -161,6 +161,7 @@ const options = [
     [['-d', '--delete'], 0, 'delete', null,     'delete queues before running'],
     [['-t', '--time'],   1, 'time',   isNum,    'ms between checks (default is 500)'],
     [['-u', '--url'],    1, 'url',    'string', 'rabbit endpoint (default is http://localhost:15672)'],
+    [['-U', '--user'],   1, 'user',   'string', 'user:password for basic auth'],
     [['-e', '--env'],    1, 'env',    'string', `rabbit env [${ENVS.join(', ')}]`],
     [['-q', '--queue'],  1, 'queue',  'string', 'filter by queue name'],
     [['-s', '--short'],  0, 'short',  'null',   'shorten queue names'],
@@ -179,6 +180,7 @@ const programArgs = process.argv.slice(2).reduce((args, arg, i, argv) => {
     if (opt) {
         if (opt.req > 0) {
             args[opt.name] = argv.splice(i + 1, opt.req);
+            console.log(opt.name, args[opt.name]);
             const supplied = args[opt.name] || [];
             if (!supplied || supplied.length !== opt.req) {
                 console.log(`expected ${opt.req} args for ${arg} (got ${supplied.length})`);
@@ -225,6 +227,11 @@ if (!programArgs.url) {
     programArgs.url = 'http://localhost:15672';
 }
 
+if (programArgs.user) {
+  const encoded = Buffer.from(programArgs.user[0]).toString('base64');
+  reqOptions.headers.authorization = `Basic ${encoded}`;
+}
+
 programArgs.url = `${programArgs.url}`.replace(/\/+$/, '');
 
 if (programArgs.help) {
@@ -249,6 +256,9 @@ if (programArgs.help) {
 }
 
 const main = async () => {
+    console.log(programArgs);
+    console.log(reqOptions);
+    await new Promise(res => setTimeout(res, 2000));
     if (programArgs.delete) {
         await deleteQueues();
     }
