@@ -12,12 +12,14 @@ cdl() { cd "$@" && ls --color=auto; }
 # List octal permissions
 lp() {
   ls -l --color=always "$@" |awk '{
-    k = 0
-    for (i = 0; i <= 8; i++)
-      k += ((substr($1, i + 2, 1) ~/[rwx]/) * 2 ^ (8 - i))
-    if (k)
-      printf("%0o ", k)
-    print
+    k = 0;
+    for (i = 0; i <= 8; i++) {
+      k += ((substr($1, i + 2, 1) ~/[rwx]/) * 2 ^ (8 - i));
+    }
+    if (k) {
+      printf("%0o ", k);
+    }
+    print;
   }'
 }
 alias l1='ls -1'
@@ -182,7 +184,22 @@ alias volume='pactl -- set-sink-volume 0'
 # alias specs='inxi -Fxzd'
 alias specs='sudo inxi -Fdflmopuxz'
 alias fixdisplays='xrandr --output HDMI-0 --left-of DVI-I-0 --auto'
-
+sound() {
+  case "$1" in
+    tv)
+      pacmd set-card-profile 1 output:hdmi-stereo-extra1+input:analog-stereo
+      pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo-extra1
+    ;;
+    tv2)
+      pacmd set-card-profile 1 output:hdmi-stereo+input:analog-stereo
+      pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo
+    ;;
+    hp)
+      pacmd set-card-profile 1 output:analog-stereo+input:analog-stereo
+      pacmd set-default-sink alsa_output.pci-0000_00_1f.3.analog-stereo
+    ;;
+  esac
+}
 
 ## Network
 
@@ -409,6 +426,8 @@ gpush() {
   git push $remote $branch
 }
 
+alias gshove='git push -f --no-verify'
+
 gcam() {
   git add -A && \
   git commit -am "$*"
@@ -590,6 +609,11 @@ watchdo() {
 
 ## Work
 
+sprt() {
+  tmux at -t 'spotify' 2>/dev/null || \
+  tmux new-session -t 'spotify' \; \
+    send-keys "spirate" C-m \;
+}
 acrvpn() {
   tmux at -t 'acrvpn' 2>/dev/null || \
   tmux new-session -t 'acrvpn' \; \
@@ -1047,6 +1071,7 @@ zgoto() {
     market-tool-service) path=market-tool-service/market-tool-service ;;
     recommendations-service) path=recommendations-service/recommendations-service ;;
     reporting) path=reporting/reporting ;;
+    remote-services) path=remote-services/remote-services ;;
     scheduler-service) path=scheduler-service ;;
     service-partner) path=service-partner/service-partner ;;
     sim-card) path=sim_card/sim_card ;;

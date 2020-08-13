@@ -1,0 +1,39 @@
+#!/bin/bash
+
+LOGFILE=/tmp/spotify.log
+SCRIPT=$(basename $0)
+
+CHRS=('▁' '▂' '▃' '▄' '▅' '▆' '▇' '█' '▇' '▆' '▅' '▄' '▃')
+i=0
+tput civis
+trap 'tput cnorm' EXIT
+BLOCKED=0
+
+startSpotifyMinimized() {
+  command spotify &>>$LOGFILE &
+  sleep 0.5
+  xdotool search --onlyvisible --classname Spotify windowminimize
+  spotifycli.py --next
+}
+
+if ! $(spotifycli.py --status &>/dev/null); then
+  startSpotifyMinimized
+  sleep 0.5
+fi
+clear
+
+while true; do
+  PLAYING=$(spotifycli.py --status 2>/dev/null)
+  if [ -z "$PLAYING" ]; then
+    echo -e '\nSpotify was not started'
+    exit 0
+  fi
+  echo -en "\033[2K\r$PLAYING ${CHRS[(i++ % ${#CHRS[*]})]} [$BLOCKED]"
+  if [[ "$PLAYING" =~ Advert|Spotify ]]; then
+    echo "${SCRIPT} blocked assumed ad: \"$PLAYING\"" >>$LOGFILE
+    (( BLOCKED++ ))
+    killall -9 spotify
+    startSpotifyMinimized
+  fi
+  sleep 1
+done
