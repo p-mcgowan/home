@@ -256,9 +256,6 @@ if (programArgs.help) {
 }
 
 const main = async () => {
-    console.log(programArgs);
-    console.log(reqOptions);
-    await new Promise(res => setTimeout(res, 2000));
     if (programArgs.delete) {
         await deleteQueues();
     }
