@@ -1,0 +1,6 @@
+#!/bin/bash
+
+if [ ! -f $HOME/source/acrontum/github/boats/build/src/cli.js ]; then
+  cd $HOME/source/acrontum/github/boats/ && npm run build
+fi
+node $HOME/source/acrontum/github/boats/build/src/cli.js $*

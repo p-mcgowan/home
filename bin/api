@@ -3,9 +3,9 @@
 # Turn on debugging
 # set -xv
 
-resultsFile=~/tmp/api.log
+resultsFile=/tmp/api.log
 tmpfile=/tmp/api.temp-file
-mkdir -p ~/tmp
+CONFIG_FILE=~/.config/api-script/config
 
 usage="Usage: $(basename $0) OPTIONS [URL]
 
@@ -46,7 +46,7 @@ options:
   -c, --cookie                Set cookie header
 
   -v, --verbose               Output more
-  -S, --show-saved            Prints out stored request data
+  -S, --save                  Force create config file from current settings
   -h, --help                  Show this menu
 "
 
@@ -69,32 +69,45 @@ headers=
 url=
 output=
 
-# Extract saved fields from this file (this actually just saves line numbers
-# for use with sed later). The order must match the variables below
-authHeaderKeyLine=$(($(grep -n -m2 'HEADERLINE' $0 |tail -n1 |cut -d':' -f1) + 1))
-authHeaderLine=$(($authHeaderKeyLine + 1))
-userHeaderLine=$(($authHeaderKeyLine + 2))
-urlHeaderLine=$(($authHeaderKeyLine + 3))
-reauthUrlLine=$(($authHeaderKeyLine + 4))
-dataTokenStringLine=$(($authHeaderKeyLine + 5))
-defaultHeadersLine=$(($authHeaderKeyLine + 6))
-cookieHeaderLine=$(($authHeaderKeyLine + 7))
+# defaults
+AUTH_HEADER_KEY="Authorization: Basic "
+AUTH_HEADER="${AUTH_HEADER_KEY}c29vcGVyLXNlY3JldA=="
+USER_HEADER="admin@example.dev:password"
+BASE_URL="localhost:5000/v1"
+REAUTH_URL="api.test/graphql"
+DATA_TOKEN_STRING="accessToken"
+DEFAULT_HEADERS="-H '$AUTH_HEADER' -k"
+COOKIE_HEADER=""
 
-# These values are replaced by the script any time data is saved - make sure
-# they never span more than 1 line, as that will mess with the replacements
-# and / or script execution
-# HEADERLINE - keep this above the 'authHeaderKey' line
-authHeaderKey="Authorization: Bearer "
-authHeader="${authHeaderKey}eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.jwtpayload.M-IQ7HOXh3Y4c_VNZf1yeLae9XtlMBYyKVM3EXHMOyI"
-userHeader="admin@example.dev:password"
-urlHeader="127.0.0.1:6969/rec"
-reauthUrl="api.test/graphql"
-dataTokenString="accessToken"
-defaultHeaders="-H 'Authorization: Bearer my.auth.bear' -k"
-cookieHeader=""
+writeConfig() {
+  mkdir -p $(dirname $CONFIG_FILE)
 
-username=$(echo $userHeader |cut -d':' -f1)
-password=$(echo $userHeader |cut -d':' -f2)
+  if [ -n "$1" ]; then
+    local key=$1
+    shift
+    local value=$@
+    sed -i "s|$key=.*|$key=$value|g" $CONFIG_FILE
+    return 0
+  fi
+
+  echo "\
+AUTH_HEADER_KEY=\"$AUTH_HEADER_KEY\"
+AUTH_HEADER=\"$AUTH_HEADER\"
+USER_HEADER=\"$USER_HEADER\"
+BASE_URL=\"$BASE_URL\"
+REAUTH_URL=\"$REAUTH_URL\"
+DATA_TOKEN_STRING=\"$DATA_TOKEN_STRING\"
+DEFAULT_HEADERS=\"$DEFAULT_HEADERS\"
+COOKIE_HEADER=\"$COOKIE_HEADER\"" > $CONFIG_FILE
+}
+
+if [ -f $CONFIG_FILE ]; then
+  source $CONFIG_FILE
+else
+  writeConfig
+fi
+
+read username password <<<$(echo $USER_HEADER |awk -F':' '{ printf("%s %s", $1, $2); }')
 
 while [ ! -z "$1" ]; do
   case $1 in
@@ -108,17 +121,17 @@ while [ ! -z "$1" ]; do
 
     -A | --auth-url)
       shift
-      reauthUrl="$1"
+      REAUTH_URL="$1"
     ;;
 
     -k | --auth-key)
       shift
-      authHeaderKey="$1"
+      AUTH_HEADER_KEY="$1"
     ;;
 
     -t | --auth-token)
       shift
-      dataTokenString="$1"
+      DATA_TOKEN_STRING="$1"
     ;;
 
     -H | --header)
@@ -134,14 +147,14 @@ while [ ! -z "$1" ]; do
       shift
       if [ -n "$1" ]; then
         if [[ "$1" =~ -H ]]; then
-          cookieHeader="$1"
+          COOKIE_HEADER="$1"
         else
-          cookieHeader="-H '$1'"
+          COOKIE_HEADER="-H '$1'"
         fi
       else
-        cookieHeader=
+        COOKIE_HEADER=
       fi
-      sed -i "$cookieHeaderLine s|.*|cookieHeader=\"${cookieHeader}\"|g" $0
+      writeConfig COOKIE_HEADER $COOKIE_HEADER
     ;;
 
     -J | --only-header)
@@ -181,7 +194,11 @@ while [ ! -z "$1" ]; do
       saveUrl=true
       shift
       baseUrl="$1"
-      urlHeader="$baseUrl"
+      BASE_URL="$baseUrl"
+    ;;
+
+    -S | --save)
+      saveConfig=true
     ;;
 
     -d | --data)
@@ -244,18 +261,6 @@ while [ ! -z "$1" ]; do
       dryRun=true
     ;;
 
-    -S | --show-saved)
-      echo "Base Url              : $urlHeader"
-      echo "Login Details         : $userHeader"
-      echo "Auth Token Header Key : $authHeaderKey"
-      echo "Auth Header           : $authHeader"
-      echo "Reauth Url            : $reauthUrl"
-      echo "Auth Token Data Key   : $dataTokenString"
-      echo "Default Headers       : $defaultHeaders"
-      echo "Cookie                : $cookieHeader"
-      exit 0
-    ;;
-
     -p | --hide-password)
       savePassword=false
     ;;
@@ -274,7 +279,7 @@ while [ ! -z "$1" ]; do
           data=$(echo "$data" |sed "s|}|,\"username\":\"$username\",\"password\":\"password\"}|g" )
         fi
       fi
-      userHeader="$username:$password"
+      USER_HEADER="$username:$password"
       shift
     ;;
 
@@ -302,36 +307,40 @@ done
 rm -f $resultsFile
 
 if [ -z "$baseUrl" ]; then
-  baseUrl="${urlHeader}"
+  baseUrl="${BASE_URL}"
 elif $saveUrl; then
-  sed -i "$urlHeaderLine s|\"[^\"]\+\"|\"$baseUrl\"|g" $0
+  writeConfig BASE_URL $baseUrl
 fi
 
 if $savePassword; then
-  sed -i "$userHeaderLine s|.*|userHeader=\"$username:$password\"|g" $0
+  writeConfig USER_HEADER "\"$username:$password\""
 else
-  sed -i "$userHeaderLine s|.*|userHeader=\"$username:<password>\"|g" $0
+  writeConfig USER_HEADER "\"$username:<password>\""
 fi
 
 if $setDefaultHeaders; then
-  sed -i "$defaultHeadersLine s|.*|defaultHeaders=\"$headers\"|g" $0
-  defaultHeaders="$headers"
+  writeConfig DEFAULT_HEADERS "\"$headers\""
+  DEFAULT_HEADERS="$headers"
 fi
 
-sed -i "$authHeaderKeyLine s|.*|authHeaderKey=\"$authHeaderKey\"|g" $0
-sed -i "$dataTokenStringLine s|.*|dataTokenString=\"$dataTokenString\"|g" $0
-sed -i "$reauthUrlLine s|.*|reauthUrl=\"$reauthUrl\"|g" $0
-authHeader="${authHeaderKey}${authHeader/$authHeaderKey/}"
+writeConfig AUTH_HEADER_KEY "\"$AUTH_HEADER_KEY\""
+writeConfig DATA_TOKEN_STRING "\"$DATA_TOKEN_STRING\""
+writeConfig REAUTH_URL "\"$REAUTH_URL\""
+AUTH_HEADER="${AUTH_HEADER_KEY}${AUTH_HEADER/$AUTH_HEADER_KEY/}"
 
-if $dryRun; then
-  echo "Base Url              : $urlHeader"
-  echo "Login Details         : $userHeader"
-  echo "Auth Token Header Key : $authHeaderKey"
-  echo "Auth Header           : $authHeader"
-  echo "Reauth Url            : $reauthUrl"
-  echo "Auth Token Data Key   : $dataTokenString"
-  echo "Default Headers       : $defaultHeaders"
-  echo "Cookie                : $cookieHeader"
+if $saveConfig; then
+  writeConfig
+fi
+
+if $saveConfig || $dryRun; then
+  echo "Base Url              : $BASE_URL"
+  echo "Login Details         : $USER_HEADER"
+  echo "Default Headers       : $DEFAULT_HEADERS"
+  echo "Auth Token Header Key : $AUTH_HEADER_KEY"
+  echo "Auth Header           : $AUTH_HEADER"
+  echo "Reauth Url            : $REAUTH_URL"
+  echo "Auth Token Data Key   : $DATA_TOKEN_STRING"
+  echo "Cookie                : $COOKIE_HEADER"
   exit 0
 fi
 
@@ -340,21 +349,21 @@ if $reauth; then
     # TODO: make email/password variable
     data='{"email":"'$username'","password":"'$password'"}'
   fi
-  $verbose && echo "curl -H \"content-type: application/json\" -d'$data' ${reauthUrl}"
-  result=$({ curl -vvv -H "Content-Type: application/json" -d"$data" ${reauthUrl}; } 2>$resultsFile)
+  $verbose && echo "curl -H \"content-type: application/json\" -d'$data' ${REAUTH_URL}"
+  result=$({ curl -vvv -H "Content-Type: application/json" -d"$data" ${REAUTH_URL}; } 2>$resultsFile)
   echo $result >>$resultsFile
 
-  # Searches JSON response for "<dataTokenString>" : "<dataTokenValue>""
-  regex="${dataTokenString}"'"[ ]*:[ ]*"([^"]+)"'
+  # Searches JSON response for "<DATA_TOKEN_STRING>" : "<dataTokenValue>""
+  regex="${DATA_TOKEN_STRING}"'"[ ]*:[ ]*"([^"]+)"'
   if [[ "$result" =~ $regex ]]; then
     token=${BASH_REMATCH[1]}
-    sed -i "$authHeaderLine s|authHeader.*|authHeader=\"\${authHeaderKey}$token\"|g" $0
+    writeConfig AUTH_HEADER "\"\${AUTH_HEADER_KEY}$token\""
   else
     # Look for Set-Cookie headers in the response
     cookieRegex='[Ss]et-[Cc]ookie:\ ([^;]+)'
     responseSetCookie="$(grep -io 'Set-Cookie: [^;]\+' $resultsFile)"
     if [[ $responseSetCookie =~ $cookieRegex ]]; then
-      sed -i "$cookieHeaderLine s|.*|cookieHeader=\"-H 'Cookie: ${BASH_REMATCH[1]}'\"|g" $0
+      writeConfig COOKIE_HEADER "\"-H 'Cookie: ${BASH_REMATCH[1]}'\""
       echo "Api sent 'set-cookie' ${BASH_REMATCH[1]}"
       exit 0
     else
@@ -378,12 +387,12 @@ if [ -z "$method" ]; then
 fi
 
 if [ -z "$allHeaders" ] && ! $headerOverride; then
-  allHeaders="${headers} ${defaultHeaders} ${allHeaders} ${cookieHeader}"
+  allHeaders="${headers} ${DEFAULT_HEADERS} ${allHeaders} ${COOKIE_HEADER}"
   allHeaders="$(echo ${allHeaders//  / })"
 fi
 
 if $useAuth; then
-  allHeaders="-H '$authHeader'"
+  allHeaders="-H '$AUTH_HEADER'"
 fi
 
 
@@ -413,7 +422,7 @@ cat $tmpfile >> $resultsFile
 cookieRegex='[Ss]et-[Cc]ookie:\ ([^;]+)'
 responseSetCookie="$(grep -io 'Set-Cookie: [^;]\+' $resultsFile)"
 if [[ $responseSetCookie =~ $cookieRegex ]]; then
-  sed -i "$cookieHeaderLine s|.*|cookieHeader=\"-H 'Cookie: ${BASH_REMATCH[1]}'\"|g" $0
+  writeConfig COOKIE_HEADER "\"-H 'Cookie: ${BASH_REMATCH[1]}'\""
 fi
 
 $verbose && grep '^[<>\*]' $resultsFile

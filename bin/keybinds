@@ -1,18 +1,18 @@
 #!/bin/bash
 
-declare -A commands=(\
+declare -A nameToLaunchCommand=(\
   [sublime]=sub \
   [chrome]=google \
+  [brave]=google \
 )
 
 declare -A defaulted=(\
   [slack]=false \
 )
 
-
 if [ -z "$(pgrep $1)" ] || ! ${defaulted[${1-false}]}; then
-  if ! [ -z ${commands[$1]} ]; then
-    ${commands[$1]}
+  if ! [ -z ${nameToLaunchCommand[$1]} ]; then
+    ${nameToLaunchCommand[$1]}
   else
     $1
   fi

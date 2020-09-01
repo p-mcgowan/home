@@ -130,7 +130,7 @@ parseDate() {
   done
 }
 
-if [ $# == 0 ] || [ $1 == -h ]; then
+if [ $# == 0 ] || [ $1 == -h ] || [ $1 == --help ]; then
   echo "$usage"
   exit 0
 fi
@@ -323,7 +323,7 @@ case $1 in
 
   -s | --stat)
     # Get a list of all current timesheets
-    files=($(find $workingDir -name hcts))
+    files=($(find $workingDir -name hcts |sort))
 
     hTotal=0
     mTotal=0

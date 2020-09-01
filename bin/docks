@@ -10,11 +10,13 @@ Removes docker containers and optionally re-launches
 usage: $(basename $0) [options]
 options:
   Setting targets:
-    -t, --target CONTAINER  Target CONTAINER container
-    -r, --regex REGEX       Target containers matching REGEX
-    -p, --project PROJECT   Use PROJECT to select containers [ps|gs|vc]
-    -a, --all-containers    Target all containers
-    -f, --compose-file      Set compose file
+    -t, --target CONTAINER   Target CONTAINER container
+    -r, --regex REGEX        Target containers matching REGEX
+    -R, --iregex REGEX       Target containers not matching REGEX
+    -p, --project PROJECT    Use PROJECT to select containers [ps|gs|vc]
+    -a, --all-containers     Target all containers
+    -f, --compose-file       Set compose file
+    -D, --dry-run            Print matching targets and exit
 
   Actions:
     -F, --fire               Remove all containers and images completely
@@ -105,7 +107,11 @@ getTargets() {
   fi
 
   if [ -n "$REGEX" ]; then
-    TARGETS="$TARGETS $(docker ps -a |awk -v prefix="$REGEX" -F'[[:space:]][[:space:]]+' '$NF ~ prefix { print $NF }')"
+    TARGETS="$TARGETS $(docker ps -a |awk -v regex="$REGEX" -F'[[:space:]][[:space:]]+' 'NR == 1 { next; } $NF ~ regex { print $NF }')"
+    echo 1>&2 -e "regex: $REGEX\ntargets: $targets"
+  elif [ -n "$IREGEX" ]; then
+    TARGETS="$TARGETS $(docker ps -a |awk -v regex="$IREGEX" -F'[[:space:]][[:space:]]+' 'NR == 1 { next; } $NF !~ regex { print $NF }')"
+    echo 1>&2 -e "iregex: $IREGEX\ntargets: $targets"
   fi
 
   if [ -n "$ALL_CONTAINERS" ]; then
@@ -326,6 +332,8 @@ while [ "${1:0:1}" == "-" ] && [ -z "$DONE" ]; do
     --yes) YES=true;;
     --debug) DEBUG=true;;
     --list) dockerList $* ;;
+    --dry-run) OPT_DRY_RUN=true ;;
+    --iregex) IREGEX=$1 && shift ;;
     --help) echo "$USAGE" && exit 0 ;;
     --) DONE=true; shift ;;
     *)
@@ -359,6 +367,8 @@ while [ "${1:0:1}" == "-" ] && [ -z "$DONE" ]; do
           o) COMPOSE_ARGS="$COMPOSE_ARGS $1" && shift ;;
           L) OPT_LOCAL=;;
           l) dockerList $* ;;
+          D) OPT_DRY_RUN=true ;;
+          R) IREGEX=$1 && shift ;;
           h) echo "$USAGE" && exit 0 ;;
           *)
             echo 'Unknown option "'$ARG'"'
@@ -388,6 +398,11 @@ if ! [[ $DESTROY$CLEAN =~ $re ]]; then
 fi
 
 if [ -n "$DESTROY" ]; then
+  if [ -n "$OPT_DRY_RUN" ]; then
+    echo 'dry run - exiting'
+    exit 0
+  fi
+
   if confirm; then
     docker rm -f $(docker ps -aq)
     docker rmi -f $(docker images -q)
@@ -400,6 +415,13 @@ if [ -n "$DESTROY" ]; then
 fi
 
 CONTAINERS=$(getTargets)
+
+if [ -n "$OPT_DRY_RUN" ]; then
+  echo 'dry run - exiting'
+  echo "containers: "
+  echo "$CONTAINERS" |sed -e 's/ \+/\n  /g' -e 's/^/  /g'
+  exit 0
+fi
 
 if [ -n "$UP_ONLY" ]; then
   buildContainers $CONTAINERS

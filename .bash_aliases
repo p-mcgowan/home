@@ -279,6 +279,7 @@ gdiff() {
     fi
   done
 
+  # --word-diff=color
   git diff $args -- ':(exclude)**/package-lock.json' ':(exclude)package-lock.json' ':(exclude)build/' ':(exclude).openapi-nodegen/' $files
 }
 alias gst='git status'
@@ -380,6 +381,9 @@ glog() {
         return 1
       fi
       git log $cmd --date=short --pretty=format:'%h %ad %an | %s%d'
+    ;;
+    -m | --medium | m)
+      git log -n1 --color --pretty=format:"%C(auto)%h %C(dim)%ad %C(auto)%s%d" --date=format:"%Y-%m-%d %H:%M"
     ;;
     -h | --help | h)
       echo "glog [-s,--short | -d,--diff | -n,--network | -h,--help] [-f,--from [SHA or date]]";;
@@ -507,7 +511,7 @@ alias chromelog='tail -f ~/.config/google-chrome/chrome_debug.log'
 alias pirate_search='node ~/source/programming/node/pirateSearch/pirate.js'
 alias streams='google -w patmcgowan.ca/apps/stream'
 alias vantime='date -d"9 hours ago" +"%y.%m.%d %H:%M"'
-alias own='sudo chown -R $(id -u):$(id -g)'
+alias own='sudo chown $(id -u):$(id -g)'
 crlfToLf() {
   sed -i 's/^M$//' $*
 }
