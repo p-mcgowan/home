@@ -843,7 +843,7 @@ client() {
 }
 morning() {
   teams
-  ts3
+  #ts3
   google -b outlook -b jira -b ghme
   # spotify
   case $1 in
@@ -894,6 +894,7 @@ psub() {
 }
 pmux() {
   case $1 in
+    '') [ -f *.sublime-project ] && sub *.sublime-project || echo 'no sublime-project here' ;;
     dsd)
       goto dsd;
       tmux new-session \; \
@@ -902,9 +903,13 @@ pmux() {
         select-pane -t1 \;
     ;;
     *)
-    tmux new-session \; \
-      split-window -v \; \
-      select-pane -t0 \;
+      local target=$(goto -c $1)
+      if [ -n "$target" ]; then
+        goto $1;
+        tmux new-session \; \
+          split-window -v \; \
+          select-pane -t0 \;
+      fi
     ;;
   esac
 }
@@ -1076,7 +1081,7 @@ zgoto() {
     recommendations-service) path=recommendations-service/recommendations-service ;;
     reporting) path=reporting/reporting ;;
     remote-services) path=remote-services/remote-services ;;
-    scheduler-service) path=scheduler-service ;;
+    scheduler-service) path=scheduler-service/scheduler-service ;;
     service-partner) path=service-partner/service-partner ;;
     sim-card) path=sim_card/sim_card ;;
     technical-actions) path=technical-actions/technical-actions ;;
