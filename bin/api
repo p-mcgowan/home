@@ -437,6 +437,7 @@ if [ -z "$output" ]; then
     (cat $tmpfile | python -m json.tool 2>/dev/null || cat $tmpfile) |tee -a $resultsFile
   else
     cat $tmpfile
+    echo
   fi
   rm -f $tmpfile
 else
