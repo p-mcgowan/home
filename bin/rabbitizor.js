@@ -9,6 +9,9 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 process.on('uncaughtException', console.trace);
 process.on('unhandledRejection', console.trace);
 
+const thingers = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█', '▇', '▆', '▅', '▄', '▃'];
+let thingerIndex = 0;
+
 const reqOptions = {
     headers: {
         authorization: 'Basic Z3Vlc3Q6Z3Vlc3Q=',
@@ -111,7 +114,9 @@ const pp = data => {
     for (let i = lc + 1; i <= process.stdout.rows; i++) {
         process.stdout.write(`\x1b[${i};1H\x1b[K`);
     }
-    process.stdout.write(`\x1b[${lc + 1};1H`);
+
+    thingerIndex = (thingerIndex + 1) % thingers.length;
+    process.stdout.write(`\x1b[${lc + 1};1H${thingers[thingerIndex]}`);
 };
 
 const ping = () => new Promise((resolve, reject) => {
