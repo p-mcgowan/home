@@ -16,7 +16,7 @@ startSpotifyMinimized() {
   spotifycli.py --next
 }
 
-if ! $(spotifycli.py --status &>/dev/null); then
+if ! $(spotifycli.py --playbackstatus &>/dev/null); then
   startSpotifyMinimized
   sleep 0.5
 fi
@@ -29,7 +29,7 @@ while true; do
     exit 0
   fi
   echo -en "\033[2K\r$PLAYING ${CHRS[(i++ % ${#CHRS[*]})]} [$BLOCKED]"
-  if [[ "$PLAYING" =~ Advert|Spotify ]]; then
+  if [[ "$PLAYING" =~ Advert|Spotify|^\ -\ $ ]]; then
     echo "${SCRIPT} blocked assumed ad: \"$PLAYING\"" >>$LOGFILE
     (( BLOCKED++ ))
     killall -9 spotify

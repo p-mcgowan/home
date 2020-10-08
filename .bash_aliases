@@ -628,7 +628,7 @@ compose-logs() {
     if tmux has-session -t compose-logs 2>/dev/null; then
       tmux at -t 'compose-logs'
     else
-      docker-compose -f ~/source/acrontum/bmw/dsd/config/apps.compose.yml logs -f
+      docker-compose -f ~/source/acrontum/bmw/dsd/config/apps.compose.yml logs -f |grep -v admin/health
     fi
     return 0
   fi
@@ -1072,6 +1072,7 @@ zgoto() {
     authentication) path=authentication/authentication ;;
     backend-main) path=frontdesk/backend_main ;;
     battery-service) path=battery-service/battery-service ;;
+    car-park) path=car-park/car-park-backend ;;
     check-control-messages) path=check-control-messages/check-control-messages ;;
     condition-based-service) path=condition-based-service/condition-based-service ;;
     fuel-system) path=fuel-system/fuel-system ;;
@@ -1164,5 +1165,3 @@ swap folders
 
   cd $target
 }
-
-source $HOME/.machinerc

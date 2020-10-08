@@ -151,3 +151,5 @@ export PATH=$PATH:$HOME/source/acrontum/bmw/dsd/config/scripts/
 
 # kubes
 source <(kubectl completion bash)
+# psql pager
+export PAGER='less -S'

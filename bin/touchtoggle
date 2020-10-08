@@ -1,52 +1,70 @@
 #!/bin/bash
 
+pressTouchpadKey() {
+  key=$(xmodmap -pke |awk '$NF ~ /TouchpadToggle/ { printf($NF); }')
+  if [ -z "$key" ]; then
+    echo "No touch pad toggle key found"
+
+    return 1
+  fi
+
+  xdotool key $key
+}
 
 toggleTouchpad() {
-    touchid=$(xinput list |grep Touchpad |awk '{print $6}' |sed 's/.*=//g')
+  if [ "$1" == "key" ]; then
+    pressTouchpadKey
+    exit $?
+  fi
 
-    setting=$(xinput list-props $touchid |grep 'Disable While Typing Enabled (' |awk '{print $6 $7}')
+  touchid=$(xinput list |awk '$0 ~ /Touchpad/ { printf(gensub(/id=/, "", "g", $(NF - 3))); }')
 
-    if [[ $setting =~ \(([0-9]+)\):([0-9]) ]]; then
-        propid=${BASH_REMATCH[1]}
+  read code newvalue < <(xinput list-props $touchid |awk '$0 ~ /Device Enabled/ {
+    toggle = $NF ? 0 : 1;
+    code = gensub(/[^0-9]/, "", "g", $(NF - 1));
+    printf("%s %s", code, toggle);
+    exit 0;
+  }')
 
-        if [ ${BASH_REMATCH[2]} == 1 ]; then
-            newval=0
-            echo Disabled touch lock
-        else
-            newval=1
-            echo Enabled touch lock
-        fi
+  if [ -z "$code" ] || [ -z "$newvalue" ]; then
+    echo "code and toggle not found - trying touch key"
 
-        xinput set-prop $touchid $propid $newval
-    fi
+    pressTouchpadKey || xinput list-props $touchid
+
+    exit $?
+  fi
+
+  xinput set-prop $touchid $code $newvalue
 }
 
 toggleTouchscreen() {
-    touchid=$(xinput list |grep 'Finger touch' |awk '{print $8}' |sed 's/.*=//g')
+  touchid=$(xinput list |grep 'Finger touch' |awk '{print $8}' |sed 's/.*=//g')
 
-    setting=$(xinput list-props $touchid |grep 'Device Enabled' |awk '{print $4}')
+  setting=$(xinput list-props $touchid |grep 'Device Enabled' |awk '{print $4}')
 
-    if [[ $setting == 1 ]]; then
-        xinput disable $touchid
-        echo Disabled touch screen
-    else
-        xinput enable $touchid
-        echo Enabled touch screen
-    fi
+  if [[ $setting == 1 ]]; then
+    xinput disable $touchid
+    echo Disabled touch screen
+  else
+    xinput enable $touchid
+    echo Enabled touch screen
+  fi
 }
 
 usage='Usage: '$(basename $0)' <option>
 options:
   s, -s, --screen, screen    Toggle touch screen
+  k, -k, --key, key          Toggle touch screen using key event
   p, -p, --pad, pad          Toggle touch pad'
 
 if [ -z $1 ]; then
-    echo "$usage"
-    exit 1
+  echo "$usage"
+  exit 1
 fi
 
 case $1 in
-    s | -s | --screen | screen) toggleTouchscreen ;;
-    p | -p | --pad | pad) toggleTouchpad ;;
-    *) echo -e "Unknown option $1\n"; echo "$usage"; exit 1 ;;
+  s | -s | --screen | screen) toggleTouchscreen ;;
+  k | -k | --key | key) toggleTouchpad key;;
+  p | -p | --pad | pad) toggleTouchpad ;;
+  *) echo -e "Unknown option $1\n"; echo "$usage"; exit 1 ;;
 esac
