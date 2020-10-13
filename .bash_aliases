@@ -101,14 +101,14 @@ alias fluxstart='gedit ~/.fluxbox/startup &'
 alias gopen='xdg-open'
 open() {
   for file in $*; do
-    xdg-open $file &>~/tmp/open.log &
+    xdg-open $file &>/tmp/open.log &
   done
 }
 alias recentinstalls='grep " install " /var/log/dpkg.log'
 alias minecraft='java -jar ~/.minecraft/Minecraft.jar &>/dev/null &'
 alias forge='cd .minecraft; java -jar ~/.minecraft/Minecraft.jar &>/dev/null &'
 alias servercraft='java -jar -Xmx1024M -Xms1024M -jar minecraft_server.1.6.4.jar nogui'
-alias brave='brave &> ~/tmp/brave.log &'
+alias brave='brave &> /tmp/brave.log &'
 vlc() {
   args="$*"
   if [[ "$*" =~ \-t\ ?([0-9]{1,2}(:[0-9]{1,2})?(:[0-9]{1,2})?) ]]; then
@@ -119,27 +119,27 @@ vlc() {
   command vlc $args &>/dev/null &
 }
 
-firefox() { command firefox "$@" &>~/tmp/firefox.log & }
-skype() { command skypeforlinux "$@" &>~/tmp/skypeforlinux.log & }
-spotify() { command spotify "$@" &>~/tmp/spotify.log & }
-vivaldi() { command vivaldi "$@" &>~/tmp/vivaldi.log & }
-pinta() { command pinta "$@" &>~/tmp/pinta.log & }
-slack() { SLACK_DEVELOPER_MENU=true command slack "$@" &>~/tmp/slack.log & }
-totem() { command totem "$@" &>~/tmp/totem.log & }
+firefox() { command firefox "$@" &>/tmp/firefox.log & }
+skype() { command skypeforlinux "$@" &>/tmp/skypeforlinux.log & }
+spotify() { command spotify --show-console "$@" &>/tmp/spotify.log & }
+vivaldi() { command vivaldi "$@" &>/tmp/vivaldi.log & }
+pinta() { command pinta "$@" &>/tmp/pinta.log & }
+slack() { SLACK_DEVELOPER_MENU=true command slack "$@" &>/tmp/slack.log & }
+totem() { command totem "$@" &>/tmp/totem.log & }
 postman() { /home/pat/programs/postman/postman $@ &>/dev/postman & }
-tor-browser() { /home/pat/programs/tor-browser_en-US/Browser/start-tor-browser --detatch $@ &>~/tmp/tor.log & }
-alias tweaks='gnome-tweak-tool 2>~/tmp/tweaks.log &'
+tor-browser() { /home/pat/programs/tor-browser_en-US/Browser/start-tor-browser --detatch $@ &>/tmp/tor.log & }
+alias tweaks='gnome-tweak-tool 2>/tmp/tweaks.log &'
 alias scli='spotifycli.py'
 alias resub='killall -9 sublime_text && sub'
 
 
 ## Gaming
 
-discord() { command discord "$@" &>~/tmp/discord.log & }
-steam() { command steam "$@" &>~/tmp/steam.log & }
+discord() { command discord "$@" &>/tmp/discord.log & }
+steam() { command steam "$@" &>/tmp/steam.log & }
 factorio() {
   if [ $# == 0 ]; then
-    ~/.factorio/bin/x64/factorio -c ~/.factorio/config/config.ini &>~/tmp/factorio.log &
+    ~/.factorio/bin/x64/factorio -c ~/.factorio/config/config.ini &>/tmp/factorio.log &
   else
     ~/.factorio/bin/x64/factorio $*
   fi
