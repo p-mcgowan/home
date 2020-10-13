@@ -10,7 +10,7 @@ trap 'tput cnorm' EXIT
 BLOCKED=0
 
 startSpotifyMinimized() {
-  command spotify &>>$LOGFILE &
+  command spotify --show-console &>>$LOGFILE &
   sleep 0.5
   xdotool search --onlyvisible --classname Spotify windowminimize
   spotifycli.py --next
