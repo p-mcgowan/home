@@ -149,6 +149,7 @@ const ping = () =>
         try {
           return resolve(JSON.parse(rawData));
         } catch (e) {
+          console.error(rawData);
           return reject(e);
         }
       });
@@ -208,34 +209,37 @@ const pOptions = options.reduce((a, v) => {
 const programArgs = process.argv.slice(2).reduce(
   (args, arg, i, argv) => {
     const opt = pOptions[arg];
-    if (opt) {
-      if (opt.req > 0) {
-        args[opt.name] = argv.splice(i + 1, opt.req);
-        const supplied = args[opt.name] || [];
-        if (!supplied || supplied.length !== opt.req) {
-          console.log(`expected ${opt.req} args for ${arg} (got ${supplied.length})`);
-          process.exit(1);
-        }
-
-        if (opt.type) {
-          let test = (x) => typeof x === opt.type;
-          if (typeof opt.type === 'function') {
-            test = opt.type;
-          }
-          args[opt.name].forEach((a) => {
-            if (!test(a)) {
-              console.log(`invalid arg type ${a}:${typeof a}`);
-              process.exit(1);
-            }
-          });
-        }
-      } else {
-        args[opt.name] = true;
-      }
-    } else {
+    if (!opt) {
       console.log(`unknown option: ${arg}`);
       process.exit(1);
     }
+
+    if (opt.req <= 0) {
+      args[opt.name] = true;
+
+      return args;
+    }
+
+    args[opt.name] = argv.splice(i + 1, opt.req);
+    const supplied = args[opt.name] || [];
+    if (!supplied || supplied.length !== opt.req) {
+      console.log(`expected ${opt.req} args for ${arg} (got ${supplied.length})`);
+      process.exit(1);
+    }
+
+    if (opt.type) {
+      let test = (x) => typeof x === opt.type;
+      if (typeof opt.type === 'function') {
+        test = opt.type;
+      }
+      args[opt.name].forEach((a) => {
+        if (!test(a)) {
+          console.log(`invalid arg type ${a}:${typeof a}`);
+          process.exit(1);
+        }
+      });
+    }
+
     return args;
   },
   {
