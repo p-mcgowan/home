@@ -1,6 +1,8 @@
 #!/bin/bash
 
-if [ ! -f $HOME/source/acrontum/github/boats/build/src/cli.js ]; then
-  cd $HOME/source/acrontum/github/boats/ && npm run build
+BOATS_DIR=$HOME/source/acrontum/github/boats
+
+if [ ! -f $BOATS_DIR/build/src/cli.js ]; then
+  cd $BOATS_DIR && npm run build
 fi
-node $HOME/source/acrontum/github/boats/build/src/cli.js $*
+node $BOATS_DIR/build/src/cli.js $*
