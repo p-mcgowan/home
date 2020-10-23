@@ -14,7 +14,7 @@ if [ -z "$(pgrep $1)" ] || ! ${defaulted[${1-false}]}; then
   if ! [ -z ${nameToLaunchCommand[$1]} ]; then
     ${nameToLaunchCommand[$1]}
   else
-    $1
+    $*
   fi
 else
   bf $1

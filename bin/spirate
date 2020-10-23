@@ -1,5 +1,9 @@
 #!/bin/bash
 
+case "$1" in
+  v|-v|--verbose|verbose) set -x ;;
+esac
+
 LOGFILE=/tmp/spotify.log
 SCRIPT=$(basename $0)
 
@@ -10,17 +14,29 @@ trap 'tput cnorm' EXIT
 BLOCKED=0
 
 startSpotifyMinimized() {
+  killall -9 spotify
+  sleep 1
   command spotify --show-console &>>$LOGFILE &
   sleep 0.5
   xdotool search --onlyvisible --classname Spotify windowminimize
   spotifycli.py --next
 }
 
-if ! $(spotifycli.py --playbackstatus &>/dev/null); then
+MAX_RETRIES=5
+STARTED=$(spotifycli.py --status 2>/dev/null)
+while [ -z "$STARTED" ] || [ "$STARTED" == " - " ]; do
   startSpotifyMinimized
-  sleep 0.5
-fi
-clear
+  WAIT=$((10-$MAX_RETRIES))
+  echo "waiting ${WAIT}s"
+  sleep $WAIT
+  ((MAX_RETRIES--))
+  if [[ $MAX_RETRIES -lt 1 ]]; then
+    echo -e '\nSpotify was not started'
+    exit 1
+  fi
+  STARTED=$(spotifycli.py --status 2>/dev/null)
+done
+# clear
 
 while true; do
   PLAYING=$(spotifycli.py --status 2>/dev/null)

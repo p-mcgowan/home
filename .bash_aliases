@@ -182,7 +182,7 @@ alias mouseFucked='echo Fixing the damn thing, do not cancel this...; compiz --r
 alias monitorFucked='xset dpms force off'
 alias volume='pactl -- set-sink-volume 0'
 # alias specs='inxi -Fxzd'
-alias specs='sudo inxi -Fdflmopuxz'
+alias specs='inxi -Fdflmopuxz' # -m (mem) requires root
 alias fixdisplays='xrandr --output HDMI-0 --left-of DVI-I-0 --auto'
 sound() {
   case "$1" in
@@ -1072,7 +1072,7 @@ zgoto() {
     authentication) path=authentication/authentication ;;
     backend-main) path=frontdesk/backend_main ;;
     battery-service) path=battery-service/battery-service ;;
-    car-park) path=car-park/car-park-backend ;;
+    car-park-backend) path=car-park/car-park-backend ;;
     check-control-messages) path=check-control-messages/check-control-messages ;;
     condition-based-service) path=condition-based-service/condition-based-service ;;
     fuel-system) path=fuel-system/fuel-system ;;
