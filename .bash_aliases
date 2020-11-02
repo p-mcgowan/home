@@ -844,23 +844,17 @@ client() {
 morning() {
   teams
   #ts3
-  google -b outlook -b jira -b ghme
+  google -b outlook -b jira -b ghme -b jira-applications
   # spotify
   case $1 in
     dsd)
       psub dsd
       pmux dsd
     ;;
-    # v | -v | vc | --vc)
-    #   google -b ghvc
-    #   vsub vc
-    #   vctmux
-    # ;;
-    # '' | g | -g | gs | --gs)
-    #   google -b ghgs
-    #   vsub gs
-    #   gstmux
-    # ;;
+    gen)
+      psub gen
+      pmux gen
+    ;;
     -d | --dir)
       shift
       cd ${1:-./}
@@ -873,7 +867,7 @@ morning() {
       ptmux
     ;;
     *)
-      echo "[dsd|dir]"
+      echo "[dsd|dir|gen]"
     ;;
   esac
 }
