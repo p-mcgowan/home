@@ -1,6 +1,8 @@
 #!/bin/bash
 
-if [ ! -f $HOME/source/acrontum/github/generate-it/build/cli.js ]; then
-  cd $HOME/source/acrontum/github/generate-it/ && npm run build
+GID_VERSION=${GID_VERSION:-build}
+
+if [ ! -f $HOME/source/acrontum/github/generate-it/${GID_VERSION}/cli.js ]; then
+  cd $HOME/source/acrontum/github/generate-it/ && npm run ${GID_VERSION}
 fi
-node $HOME/source/acrontum/github/generate-it/build/cli.js $*
+node $HOME/source/acrontum/github/generate-it/${GID_VERSION}/cli.js $*
