@@ -947,6 +947,13 @@ gtmux() {
   send-keys -t0 'gst' C-m \; \
   send-keys -t1 'gdiff' C-m \;
 }
+mtmux() {
+  zs b
+  tmux new-session \; \
+  split-window -h \; \
+  send-keys -t0 'zw npm start' C-m \; \
+  send-keys -t1 'gst' C-m \;
+}
 
 perty() {
   local usage="\
