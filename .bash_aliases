@@ -486,6 +486,11 @@ new-repo() {
 
 ## Misc
 
+pedit() {
+  img=/tmp/$(date +%s).png
+  echo "trying to write and edit $img"
+  pasteimage $img && pinta $img
+}
 screenshot() {
   local launch=xdg-open
   if [ -n "$1" ]; then
@@ -525,6 +530,7 @@ ts() {
 }
 # Random crap
 alias throwit='echo "(╯°□°）╯︵ ┻━┻"'
+alias shrug='echo "¯\_(ツ)_/¯"'
 ducksay() {
   echo '
  ._(`)<   "'$*'"
@@ -624,21 +630,10 @@ acrvpn() {
     send-keys "sudo ~/work/vpn" C-m \;
 }
 compose-logs() {
-  if [ -n "$TMUX" ]; then
-    if tmux has-session -t compose-logs 2>/dev/null; then
-      tmux at -t 'compose-logs'
-    else
-      docker-compose -f ~/source/acrontum/bmw/dsd/config/apps.compose.yml logs -f |grep -v admin/health
-    fi
-    return 0
-  fi
   local composeFile=${1:-apps.compose.yml}
   tmux at -t 'compose-logs' 2>/dev/null || {
-    if [ ! -f  "$composeFile" ]; then
-      echo compose file not found here && return 1
-    fi
-    tmux new-session -t 'compose-logs' \; \
-      send-keys "docker-compose -f $composeFile logs -f" C-m \;
+    TMUX= tmux new-session -t 'compose-logs' \; \
+      send-keys "goto dsdc && docker-compose -f $composeFile logs -f | grep -v 'admin/health\|OPTIONS'" C-m \;
   }
 }
 alias wh='watcherHelper'
@@ -1165,4 +1160,45 @@ swap folders
   fi
 
   cd $target
+}
+vbump() {
+  gitroot
+  INITIAL_VERSION=$(awk -F'"' '$2 ~ /version/ { printf($4); }' package.json)
+
+  localVersionNotGreater() {
+    DEV_LATEST=${TARGET_VERSION:-$(git show origin/develop:package.json |awk -F'"' '$2 ~ /version/ { printf($4); }')}
+    CURRENT_VERSION=$(awk -F'"' '$2 ~ /version/ { printf($4); }' package.json)
+    if [ -z "$DEV_LATEST" ]; then
+      echo "package json does not appear to be on dev"
+      return 1
+    fi
+
+    if [ "$DEV_LATEST" = "$CURRENT_VERSION" ]; then
+      return 0
+    fi
+
+    SEMVER_SORTED=$(echo -ne "$CURRENT_VERSION\n$DEV_LATEST" |sort -rV | tr -s '\n' ' ')
+    SEMVER_SORTED=${SEMVER_SORTED:0:-1}
+
+    if [ "$SEMVER_SORTED" != "$CURRENT_VERSION $DEV_LATEST" ]; then
+      return 0
+    fi
+
+    return 1
+  }
+
+  git fetch --all --prune --tags --prune-tags
+  while localVersionNotGreater; do
+    BUMPED=$(npm --no-git-tag-version version patch)
+  done
+
+  if [ -n "$BUMPED" ]; then
+    VERSION=$(awk -F'"' '$2 ~ /version/ { printf($4); }' package.json)
+    echo -e "\nupdated \033[0;33m$INITIAL_VERSION -> $VERSION\033[0;0m\n"
+    sed -ri "s/^(\s*)(version\s*:\s*.*$)/\1version: ${VERSION}/" helm/dsd*/Chart.yaml
+    git add package.json package-lock.json helm/dsd*/Chart.yaml
+    git commit package.json package-lock.json helm/dsd*/Chart.yaml -m "v$VERSION"
+  else
+    echo -e "\nlatest version [v$CURRENT_VERSION] ahead of origin/develop [v$DEV_LATEST] - \033[0;32mskipping version bump\033[0;0m\n"
+  fi
 }
