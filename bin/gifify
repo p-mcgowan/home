@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOGFILE=~/tmp/gifiy.log
+LOGFILE=/tmp/gifiy.log
 
 checkDeps() {
   err=
@@ -21,7 +21,7 @@ usage() {
   echo "Usage: $(basename $0) [options]"
   echo "options:"
   echo "  -f, --fps FPS       Set framerate (default=15 fps)"
-  echo "  -o, --ouput FILE    Set output file"
+  echo "  -o, --ouput FILE    Set output file (default is random)"
   # echo "  -z, --fuzz PCT      Add PCT (%) fuzz to output (default=3%)"
   echo "  -n, --cleanup       Remove intermediate files"
   echo "  -v, --video         Only output video file"
@@ -30,6 +30,7 @@ usage() {
 }
 
 checkDeps
+outfile=/tmp/$(date +%s)
 
 while [[ -n "$1" ]]; do
   case "$1" in
@@ -45,7 +46,13 @@ while [[ -n "$1" ]]; do
   shift
 done
 
+echo() {
+  command echo "$@"
+  command echo "$@" >&3
+}
+
 if [ -z "$verbose" ]; then
+  exec 3>&1
   exec > $LOGFILE 2>&1
 else
   exec &> >(tee $LOGFILE)
@@ -80,10 +87,10 @@ echo -n Extracting palette...
 ffmpeg -i convertToGifOut/out.ogv -filter_complex "[0:v] palettegen" convertToGifOut/palette.png
 
 echo -ne 'DONE\nConverting ogv to gif...'
-rm -f "${outfile-output.gif}"
-ffmpeg -i convertToGifOut/out.ogv -i convertToGifOut/palette.png -filter_complex "[0:v][1:v] paletteuse" "${outfile-output.gif}"
+rm -f "${outfile-output}.gif"
+ffmpeg -i convertToGifOut/out.ogv -i convertToGifOut/palette.png -filter_complex "[0:v][1:v] paletteuse" "${outfile-output}.gif"
 
-echo -e "DONE\nGifified file '${outfile-output.gif}'"
+echo -e "DONE\nGifified file '${outfile-output}.gif'"
 if $cleanup; then
   rm -rf convertToGifOut/
 fi
