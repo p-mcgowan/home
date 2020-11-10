@@ -156,7 +156,18 @@ cscfg() {
     *)  sub ~/.steam/steam/steamapps/common/Counter-Strike\ Global\ Offensive/csgo/cfg/autoexec.cfg;;
   esac
 }
-
+# send mouse clicks to window
+spam() {
+  echo sleeping for 3s
+  sleep 3;
+  window=$(xdotool getwindowfocus);
+  while [ "$(xdotool getactivewindow)" == $window ]; do
+    xdotool mousedown 3 mouseup 3;
+    xdotool mousedown 2 mouseup 2;
+    sleep 0.01;
+  done
+  xdotool mouseup 3; xdotool mouseup 2;
+}
 
 ## Computer Control:
 
