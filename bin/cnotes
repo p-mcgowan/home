@@ -10,8 +10,14 @@ fi
 
 # Basic scheduling program
 working_dir=~/source/coursenotes
-mkdir -p $working_dir/config
 config_file="$working_dir/config/cnotes.conf"
+script_config=~/.config/coursenotes.config
+
+if [ -f $script_config ]; then
+  source $script_config
+fi
+
+mkdir -p $working_dir/config
 if [ ! -f $config_file ]; then
   echo Error: Could not initialize: $working_dir/config/cnotes.conf not found.
   # new config
