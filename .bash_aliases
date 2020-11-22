@@ -131,7 +131,7 @@ tor-browser() { /home/pat/programs/tor-browser_en-US/Browser/start-tor-browser -
 alias tweaks='gnome-tweak-tool 2>/tmp/tweaks.log &'
 alias scli='spotifycli.py'
 alias resub='killall -9 sublime_text && sub'
-
+alias novim='HOME=/dev/null vim -u NONE -n'
 
 ## Gaming
 
@@ -630,6 +630,7 @@ watchdo() {
 
 ## Work
 
+alias gsts='sub $(git status --short |awk '"'"'{ print($2); }'"'"')'
 sprt() {
   tmux at -t 'spotify' 2>/dev/null || \
   tmux new-session -t 'spotify' \; \
@@ -1068,6 +1069,9 @@ spindex() {
   }
 }
 
+extglob=$(shopt extglob |grep 'off')
+shopt -s extglob
+
 zgoto() {
   root=/home/patrickmcgowan/source/acrontum/bmw/dsd
 
@@ -1075,29 +1079,31 @@ zgoto() {
   local frontend=
   local swagger=
   case "$1" in
-    admin-panel-backend) path=admin-panel/admin-panel-backend ;;
-    authentication) path=authentication/authentication ;;
-    backend-main) path=frontdesk/backend_main ;;
-    battery-service) path=battery-service/battery-service ;;
-    car-park-backend) path=car-park/car-park-backend ;;
-    check-control-messages) path=check-control-messages/check-control-messages ;;
-    condition-based-service) path=condition-based-service/condition-based-service ;;
-    fuel-system) path=fuel-system/fuel-system ;;
-    historical-data) path=historical-data/historical-data ;;
-    known-issue-service) path=known-issue-service/known-issue-service ;;
-    market-tool-service) path=market-tool-service/market-tool-service ;;
-    recommendations-service) path=recommendations-service/recommendations-service ;;
-    reporting) path=reporting/reporting ;;
-    remote-services) path=remote-services/remote-services ;;
-    scheduler-service) path=scheduler-service/scheduler-service ;;
-    service-partner) path=service-partner/service-partner ;;
-    sim-card) path=sim_card/sim_card ;;
-    technical-actions) path=technical-actions/technical-actions ;;
-    technical-admin-panel-backend) path=technical-admin-panel/technical-admin-panel-backend ;;
-    tires-machine-consumer) path=tires-machine-consumer/tires-machine-consumer ;;
-    tires-machine-receiver) path=tires-machine-receiver/tires-machine-receiver ;;
-    tires-service) path=tires-service/tires-service ;;
-    user-management) path=user-management/user-management ;;
+    ?(dsd-)admin-panel-backend) path=admin-panel/admin-panel-backend ;;
+    ?(dsd-)authentication) path=authentication/authentication ;;
+    ?(dsd-)backend-main) path=frontdesk/backend_main ;;
+    ?(dsd-)battery-service) path=battery-service/battery-service ;;
+    ?(dsd-)car-park-backend) path=car-park/car-park-backend ;;
+    ?(dsd-)check-control-messages) path=check-control-messages/check-control-messages ;;
+    ?(dsd-)condition-based-service) path=condition-based-service/condition-based-service ;;
+    ?(dsd-)fuel-system) path=fuel-system/fuel-system ;;
+    ?(dsd-)historical-data) path=historical-data/historical-data ;;
+    ?(dsd-)known-issue-service) path=known-issue-service/known-issue-service ;;
+    ?(dsd-)market-tool-service) path=market-tool-service/market-tool-service ;;
+    ?(dsd-)recommendations-service) path=recommendations-service/recommendations-service ;;
+    ?(dsd-)reporting) path=reporting/reporting ;;
+    ?(dsd-)remote-services) path=remote-services/remote-services ;;
+    ?(dsd-)scheduler-service) path=scheduler-service/scheduler-service ;;
+    ?(dsd-)service-partner) path=service-partner/service-partner ;;
+    ?(dsd-)sim-card) path=sim_card/sim_card ;;
+    ?(dsd-)technical-actions) path=technical-actions/technical-actions ;;
+    ?(dsd-)technical-admin-panel-backend) path=technical-admin-panel/technical-admin-panel-backend ;;
+    ?(dsd-)tires-machine-consumer) path=tires-machine-consumer/tires-machine-consumer ;;
+    ?(dsd-)tires-machine-receiver) path=tires-machine-receiver/tires-machine-receiver ;;
+    ?(dsd-)tires-service) path=tires-service/tires-service ;;
+    ?(dsd-)user-management) path=user-management/user-management ;;
+    dsd) path=/ ;;
+    dsdc) path=config ;;
     *) echo nop && return 1 ;;
   esac
 
@@ -1128,6 +1134,8 @@ zgoto() {
 
   cd $root/$path
 }
+
+[ -n "$extglob" ] && shopt -u extglob
 
 zs() {
   local usage="zs [b | f | s]
