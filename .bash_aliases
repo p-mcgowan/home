@@ -645,13 +645,12 @@ compose-logs() {
   local composeFile=${1:-apps.compose.yml}
   tmux at -t 'compose-logs' 2>/dev/null || {
     TMUX= tmux new-session -t 'compose-logs' \; \
-      send-keys "goto dsdc && docker-compose -f $composeFile logs -f | grep -v 'admin/health\|OPTIONS'" C-m \;
+      send-keys "goto dsdc && docker-compose -f $composeFile logs -f --tail=200 | grep -v 'admin/health\|OPTIONS'" C-m \;
   }
 }
 alias wh='watcherHelper'
-alias dslogin=$'awk \'NR==2 { printf($1); }\' ~/work/notes |xclip && echo "middle clickable"'
-alias dsl='dslogin'
-alias qnumber=$'qn=$(awk \'NR==1 { printf($1); }\' ~/work/notes); echo $qn |xclip && echo -e "$qn\nmiddle clickable"'
+alias dsl="awk -F'=' 'NR == 2 { printf(gensub(/\"/, \"\", \"g\", \$2)); }' ~/work/notes |xclip && echo 'middle clickable'"
+alias qnumber="awk -F'=' '\$1 ~ /qnumber/ { printf(\$2); }' ~/work/notes |xclip && echo -e \"$qn\nmiddle clickable\""
 kcc() {
   [[ -z "$1" ]] && kubectl config get-contexts | awk -F '  +' '{
     if ($1 == "*") {
@@ -659,7 +658,10 @@ kcc() {
     } else {
        printf("%s  %s\n", $2, $3);
     }
-  }' |column -t || kubectl config use-context "$1"
+  }' |column -t || {
+    [[ "$1" == -p ]] && kubectl config get-contexts |awk '$1 == "*" { print($2); }' || \
+    kubectl config use-context "$1"
+  }
 }
 fast-mocha() {
   local splits=4
