@@ -100,8 +100,8 @@ alias fluxkeys='gedit ~/.fluxbox/keys &'
 alias fluxstart='gedit ~/.fluxbox/startup &'
 alias gopen='xdg-open'
 open() {
-  for file in $*; do
-    xdg-open $file &>/tmp/open.log &
+  for file in "$@"; do
+    xdg-open "$file" &>/tmp/open.log &
   done
 }
 alias recentinstalls='grep " install " /var/log/dpkg.log'
@@ -871,12 +871,11 @@ morning() {
         echo could not find project $1/*.sublime-project
         return 1
       fi
-      google -b ghib
       sub *.sublime-project
       ptmux
     ;;
     *)
-      echo "[dsd|dir|gen]"
+      echo "[-d dir] [dsd|gen]"
     ;;
   esac
 }
