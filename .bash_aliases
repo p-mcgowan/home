@@ -494,6 +494,20 @@ new-repo() {
   fi
   curl https://api.github.com/user/repos -H 'Content-Type: application/json' -H "Authorization: token $(cat ~/.ssh/github_repo_key)" -d $JSON
 }
+deletebranches() {
+  local branches=()
+  for branch in "$@"; do
+    branches+=(":$(echo $branch |sed -e 's|remotes/origin/||g')")
+  done
+  git push --no-verify origin ${branches[@]}
+}
+ismerged() {
+  branches -r |sed 's/\ /\n/g' |while read branch; do
+    [[ $branch =~ stage|master|develop ]] && continue
+    echo -e "\n$branch"
+    glog -n --color=always | grep --color=never "$(echo $branch |sed -e 's|remotes/origin/||g')"
+  done
+}
 
 ## Misc
 
@@ -540,8 +554,8 @@ ts() {
   resize -s ${1-25} ${2-80} &>/dev/null
 }
 # Random crap
-alias throwit='echo "(╯°□°）╯︵ ┻━┻"'
-alias shrug='echo "¯\_(ツ)_/¯"'
+alias throwit='echo "(╯°□°）╯︵ ┻━┻" |tee /dev/tty |xclip'
+alias shrug='echo "¯\_(ツ)_/¯" |tee /dev/tty |xclip'
 ducksay() {
   echo '
  ._(`)<   "'$*'"
@@ -650,7 +664,7 @@ compose-logs() {
 }
 alias wh='watcherHelper'
 alias dsl="awk -F'=' 'NR == 2 { printf(gensub(/\"/, \"\", \"g\", \$2)); }' ~/work/notes |xclip && echo 'middle clickable'"
-alias qnumber="awk -F'=' '\$1 ~ /qnumber/ { printf(\$2); }' ~/work/notes |xclip && echo -e \"$qn\nmiddle clickable\""
+alias qnumber="awk -F'=' '\$1 ~ /qnumber/ { printf(\$2); }' ~/work/notes | tee /dev/tty |xclip && echo -e \"\nmiddle clickable\""
 kcc() {
   [[ -z "$1" ]] && kubectl config get-contexts | awk -F '  +' '{
     if ($1 == "*") {
@@ -739,6 +753,10 @@ hours() {
     goto $projectsDir -q
     for project in $(find $PWD -maxdepth 4 -type d -name .git 2>/dev/null); do
       if [ -f $(dirname $project)/../.gitmodules ] && grep -q $(basename $(dirname $project)) $(dirname $project)/../.gitmodules; then
+        continue
+      fi
+      # skip scripts
+      if [ $(basename $(dirname $project)) == "config" ]; then
         continue
       fi
 
@@ -1186,7 +1204,6 @@ vbump() {
   INITIAL_VERSION=$(awk -F'"' '$2 ~ /version/ { printf($4); }' package.json)
 
   localVersionNotGreater() {
-    DEV_LATEST=${TARGET_VERSION:-$(git show origin/develop:package.json |awk -F'"' '$2 ~ /version/ { printf($4); }')}
     CURRENT_VERSION=$(awk -F'"' '$2 ~ /version/ { printf($4); }' package.json)
     if [ -z "$DEV_LATEST" ]; then
       echo "package json does not appear to be on dev"
@@ -1208,6 +1225,7 @@ vbump() {
   }
 
   git fetch --all --prune --tags --prune-tags
+  DEV_LATEST=${TARGET_VERSION:-$(git show origin/develop:package.json |awk -F'"' '$2 ~ /version/ { printf($4); }')}
   while localVersionNotGreater; do
     BUMPED=$(npm --no-git-tag-version version patch)
   done
