@@ -562,7 +562,7 @@ ducksay() {
   \___)'
 }
 function fire! { echo -n '0-118-999-881-999-119-725'; sleep 2; echo 3; }
-instantServer() {
+instant-server() {
   local port=${1:-${PORT:-8080}}
   local spa=${2-true}
   node -e "
@@ -653,7 +653,7 @@ sprt() {
 acrvpn() {
   tmux at -t 'acrvpn' 2>/dev/null || \
   tmux new-session -t 'acrvpn' \; \
-    send-keys "sudo ~/work/vpn" C-m \;
+    send-keys "sudo openvpn --config ~/work/patrick_mcgowan@vpn.acrontum.de.ovpn" C-m \;
 }
 compose-logs() {
   local composeFile=${1:-apps.compose.yml}
@@ -871,7 +871,7 @@ client() {
 morning() {
   teams
   #ts3
-  google -b outlook -b jira -b ghme -b jira-applications
+  google -b outlook -b "jira sprint board" -b ghme -b jira-applications
   # spotify
   case $1 in
     dsd)
@@ -1239,4 +1239,15 @@ vbump() {
   else
     echo -e "\nlatest version [v$CURRENT_VERSION] ahead of origin/develop [v$DEV_LATEST] - \033[0;32mskipping version bump\033[0;0m\n"
   fi
+}
+
+jest() {
+  if [ ! -f package.json ]; then
+    gitroot
+  fi
+  if [ "$1" == "-s" ]; then
+    args="--setupFilesAfterEnv=$HOME/work/unmangle-jest-console.js"
+    shift
+  fi
+  NODE_ENV=test npx jest --collectCoverage false --verbose --runInBand --passWithNoTests $args $*
 }
