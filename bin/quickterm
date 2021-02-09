@@ -9,16 +9,16 @@
 
 # Write commands out to a script then nohup it to ensure it finished what it
 # needs to do
+input=/tmp/quickterm.input
+
 if [ "$(uname -s)" == "Linux" ]; then
-    input=~/tmp/quickterm.input
     dialog=$(which dialog)
 else
-    input=$(dirname $BASH_SOURCE)/quickterm.input
     dialog=$(which gdialog)
 fi
 
-success=~/tmp/qtexit.log
-output=~/tmp/quickterm.log
+success=/tmp/qtexit.log
+output=/tmp/quickterm.log
 
 # Cleanup on cancel
 trap "rm -f $input $output nohup.out $success; exit" SIGHUP SIGINT SIGTERM
