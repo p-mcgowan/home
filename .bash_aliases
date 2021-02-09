@@ -554,6 +554,12 @@ ts() {
   resize -s ${1-25} ${2-80} &>/dev/null
 }
 # Random crap
+imout() {
+  echo '~   _o
+~  //\_
+~ _/\
+~   /'
+}
 alias throwit='echo "(╯°□°）╯︵ ┻━┻" |tee /dev/tty |xclip'
 alias shrug='echo "¯\_(ツ)_/¯" |tee /dev/tty |xclip'
 ducksay() {
@@ -652,8 +658,7 @@ sprt() {
 }
 acrvpn() {
   tmux at -t 'acrvpn' 2>/dev/null || \
-  tmux new-session -t 'acrvpn' \; \
-    send-keys "sudo openvpn --config ~/work/patrick_mcgowan@vpn.acrontum.de.ovpn" C-m \;
+  tmux new-session -t 'acrvpn' \; send-keys "sudo ~/work/vpn" C-m \;
 }
 compose-logs() {
   local composeFile=${1:-apps.compose.yml}
