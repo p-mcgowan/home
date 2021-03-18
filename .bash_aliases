@@ -545,6 +545,7 @@ alias own='sudo chown $(id -u):$(id -g)'
 crlfToLf() {
   sed -i 's/^M$//' $*
 }
+alias xlcsv='libreoffice --headless --convert-to csv'
 asciitree() { tree "$*" | sed 's/├/\+/g; s/─/-/g; s/└/\\/g'; }
 
 ## Quickterm shortcut
@@ -902,6 +903,13 @@ morning() {
     ;;
   esac
 }
+welcome-message() {
+  echo -e '\033[1;30;43mMake sure that the corresponding Jira ticket is in the right place after you merge or approve a PR in git \033[0m\n'
+  echo -e '\033[1;30;43mMind the MR check list (e.g. UIDs for UI elements) \033[0m\n'
+  echo -e '\033[1;30;43mHave events for fun! \033[0m\n'
+  echo -e '\033[1;30;43mClear everything off the board\033[0m\n'
+  echo -e '\033[1;30;43mBoy scout rule\033[0m\n'
+}
 psub() {
   case $1 in
     '') [ -f *.sublime-project ] && sub *.sublime-project || echo 'no sublime-project here' ;;
@@ -925,7 +933,8 @@ pmux() {
       tmux new-session \; \
         split-window -v \; \
         send-keys -t0 'docks -u config' C-m \; \
-        select-pane -t1 \;
+        select-pane -t1 \; \
+        send-keys -t1 'welcome-message' C-m \;
     ;;
     *)
       local target=$(goto -c $1)
@@ -1255,4 +1264,19 @@ jest() {
     shift
   fi
   NODE_ENV=test npx jest --collectCoverage false --verbose --runInBand --passWithNoTests $args $*
+}
+
+b64() {
+  local decode=
+  case $1 in
+    e | -e | encode | --encode) shift ;;
+    d | -d | decode | --decode) decode="-d"; shift ; ;;
+    h |-h | help | --help) echo "b64 [-d] ...args"; return 0; ;;
+  esac
+
+  for i in "$@"; do
+    echo "$i"
+    echo -n "$i" |base64 $decode
+    echo -e '\n'
+  done
 }
