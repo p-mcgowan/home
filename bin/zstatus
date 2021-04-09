@@ -1,0 +1,73 @@
+#!/bin/bash
+
+source ~/.bash_aliases
+
+calledFrom=$(pwd)
+dsdroot=$(cd $(dirname $0)/.. && pwd)
+
+getStatus() {
+  cd $(git rev-parse --show-toplevel)
+
+  # slow...
+  # mainBranch=$(git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print($2); }')
+  thisBranch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+  # if [ -s /tmp/err ]; then echo "'ERRRR $PWD'"; cat /tmp/err; fi
+  mainBranch=$(git symbolic-ref --short HEAD)
+  mainBranch=${mainBranch:-develop}
+  status=$(git status -s)
+  commits=$(git log --oneline $mainBranch..HEAD 2>/dev/null)
+  upToDate=$(git status |grep -q "Your branch is up to date with 'origin/")
+
+  if [ -z "$status" ] && $upToDate; then
+    if [ -n "$VERBOSE" ]; then
+      echo -e "\n\n\033[0;36m${PWD}\033[0;0m"
+      echo $thisBranch
+    fi
+    return
+  fi
+
+  if [ -n "${commits}${status}" ]; then
+    echo -e "\n\n\033[0;36m${PWD}\033[0;0m"
+    echo $thisBranch
+    git log --oneline $mainBranch..HEAD
+    git status -s
+    # git diff --staged --color=always
+  fi
+}
+
+doStatus() {
+  for folder in $(find $@ -maxdepth 3 -type d -name .git); do
+    (
+      cd $(dirname $folder);
+      getStatus;
+    )
+  done
+}
+
+case "$1" in
+  a | -a | --all) doStatus $dsdroot ;;
+  '') doStatus $calledFrom ;;
+  t | -t | --test)
+    for folder in $(find $dsdroot -maxdepth 3 -type d -name .git); do
+      for test in $*; do
+        if [[ $folder =~ $test ]]; then
+          cd $(dirname $folder)
+          getStatus
+          continue
+        fi
+      done
+    done
+  ;;
+  *)
+    if [ -d "$1" ]; then
+      cd $1
+      calledFrom=$(pwd)
+      doStatus '.'
+    else
+      echo "dunno, RTFM"
+      exit 1
+    fi
+  ;;
+esac
+
+echo

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+find . -maxdepth 5 -name .git -type d 2>/dev/null |while read folder; do
+  cd $(dirname $folder) && \
+  git log -n1 --pretty=format:"%at $(basename $PWD) | %ad | %h%x09%an%x09'%s'%x0a"  && \
+  cd - &>/dev/null
+done |sort |column -s '\|' -t >/tmp/gitlatest
+echo "wrote to /tmp/gitlatest"

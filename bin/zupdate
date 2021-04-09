@@ -1,0 +1,136 @@
+#!/bin/bash
+
+source ~/.bash_aliases
+
+here=$(pwd)
+gitroot=$(git rev-parse --show-toplevel)
+dsdroot=$(cd $(dirname $0)/.. && pwd)
+
+declare -A statuses
+
+projectName() {
+  echo -e "\033[0;36m$(dirname $PWD)/\033[1m$(basename $PWD)\033[0;0m"
+}
+
+shouldSkip() {
+  local project="$1"
+  for blacklist in \
+    \\binterface-gen\\b \
+    \\bconfig\\b \
+    \\bbkp\\b \
+    \\bfrontdesk-automation-tests\\b \
+  ; do
+    if [[ $project =~ $blacklist ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+resetRepo() {
+  cd $(git rev-parse --show-toplevel)
+
+  if shouldSkip $PWD; then
+    return 1
+  fi
+
+  local isSwagger=$([[ $PWD =~ swagger ]] && echo true)
+  local mainBranch=
+  local head=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+
+  if [ -z "$head" ] || [ "$head" == "master" -a "$isSwagger" != "true" ]; then
+    echo setting HEAD
+    git remote set-head origin --auto
+    head=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+    if [ -z $head ]; then
+      echo -e "\033[0;31mfailed to find HEAD\033[0;0m"
+      statuses[$(projectName)]='\033[0;31mfailed to find HEAD\033[0;0m'
+      return 1
+    fi
+  fi
+
+  while [ -z "$mainBranch" ]; do
+    mainBranch=$(git remote show origin 2>/dev/null |awk -F': ' '$1 ~ /HEAD/ {print($2);}')
+  done
+
+  if grep -q 'ng serve' package.json 2>/dev/null; then
+    git submodule update --init --recursive
+  fi
+
+  if [ $(git status -s |wc -l) -eq 0 ]; then
+    git checkout -B $mainBranch origin/$mainBranch 2>/dev/null
+  else
+    echo -e "\033[1;33mproject has unsaved changes - will skip\033[0;0m"
+    statuses[$(projectName)]='\033[1;33mproject has unsaved changes - will skip\033[0;0m'
+    return 0
+  fi
+
+  while ! git fetch --all --prune --tags --prune-tags --keep 2>/dev/null; do
+    echo 'retrying'
+  done;
+  while ! git merge 2>/dev/null; do
+    echo 'retrying'
+  done
+
+  echo
+  if [ -n "$(branches -l)" ]; then
+    echo -e '\033[1;36msome branches were not deleted\033[0;0m'
+    statuses[$(projectName)]='\033[1;36msome branches were not deleted\033[0;0m'
+  fi
+  echo
+  branches
+}
+
+resetGits() {
+  local target="$1"
+  shift
+  for folder in $(find "$target" -maxdepth 3 -type d -name .git); do
+    if isSubmodule; then
+      continue
+    fi
+    if shouldSkip ${target}${folder}; then
+      continue
+    fi
+    if [ -n "$1" ]; then
+      for test in $*; do
+        if [[ $folder =~ $test ]]; then
+          cd $(dirname $folder)
+          echo -e "\n$(projectName)"
+          resetRepo
+          continue
+        fi
+      done
+    else
+      cd $(dirname $folder)
+      echo -e "\n$(projectName)"
+      resetRepo
+    fi
+  done
+}
+
+isSubmodule() {
+  [ -f $(dirname $folder)/../.gitmodules ] && grep -q $(basename $(dirname $folder)) $(dirname $folder)/../.gitmodules
+}
+
+case "$1" in
+  a | -a | --all) shift; resetGits "$dsdroot" $*;;
+  '') resetGits $here ;;
+  *)
+    if [ -d "$1" ]; then
+      target="$1"
+      shift
+      resetGits "$target" $@
+    else
+      echo "not found?"
+      exit 1
+    fi
+  ;;
+esac
+
+if [ ${#statuses[@]} -ne 0 ]; then
+  echo -e '\n\n\033[1;33mSome projects could not be updated:\033[0;0m\n'
+
+  for folder in "${!statuses[@]}"; do
+    echo -e "$folder\n${statuses[$folder]}"
+  done
+fi

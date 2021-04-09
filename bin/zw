@@ -1,0 +1,57 @@
+#!/bin/bash
+
+if ! [ -f package.json ]; then
+  cd $(git rev-parse --show-toplevel)
+fi
+
+# copy un-compiled files into dist
+copyAfterTsc() {
+  log "Copying un-compiled files to dist"
+  cp mailerconfig.js google-auth.json .env dist/ || true
+  mkdir -p dist/tmp
+  if [ -z "$(which rsync)" ]; then
+    find ./src ./test ./fixtures -type f ! -name "*.ts" | while read file; do
+      mkdir -p "./dist/$(dirname "$file")"
+      cp "$file" "./dist/$file"
+    done
+  else
+    for folder in ./src ./test ./fixtures ./demo-contents ./lib; do
+      if [[ -d $folder ]]; then
+        find $folder  -path "**/node_modules" -prune -o -type f ! -name "*.ts" -exec rsync -a {} --relative ./dist/ \;
+      fi
+    done
+  fi
+}
+
+export PORT=${PORT:-6666}
+# export NODE_ENV=${NODE_ENV:-production}
+
+# helper to watch and run command
+compileAndRun() {
+  local runOnBuild="${*:-echo -e '\033[1;42m $(basename $PWD) \033[0;0m'}"
+
+  compiler=$COMPILER
+  if [ -z "$compiler" ]; then
+    if grep -q '"ttypescript"' package.json; then
+      compiler="$PWD/node_modules/.bin/ttsc"
+    elif grep -q '"typescript"' package.json; then
+      compiler="$PWD/node_modules/.bin/tsc"
+    else
+      compiler="$(which ttsc || which tsc)"
+    fi
+  fi
+  if [ -z "$compiler" ]; then
+    echo "no compiler found... prolly wont work"
+  else
+    echo "running with compiler: $compiler"
+  fi
+
+  npx tsc-watch \
+    --preserveWatchOutput \
+    --compiler "$compiler" \
+    --onSuccess "$runOnBuild" \
+    --onFailure "notify-send --hint int:transient:1 -i \"$HOME/Pictures/ts.png\" 'Build failed $(basename $PWD)'"
+}
+
+compileAndRun $*
+# npm run dev:build-watch
