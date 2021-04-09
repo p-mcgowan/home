@@ -278,7 +278,7 @@ alias restart-nginx='sudo sh -c "nginx -t && service nginx restart"'
 
 alias gitroot='cd $(git rev-parse --show-toplevel)'
 alias gitdefault="git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print($2); }'"
-alias tags='git fetch --tags && git tag --list |sort -Vr'
+alias tags='git fetch --tags && git tag --list --format="%(refname:short) [%(creatordate:iso)]" |sort -Vr'
 gdiff() {
   args=
   files=
@@ -903,13 +903,6 @@ morning() {
     ;;
   esac
 }
-welcome-message() {
-  echo -e '\033[1;30;43mMake sure that the corresponding Jira ticket is in the right place after you merge or approve a PR in git \033[0m\n'
-  echo -e '\033[1;30;43mMind the MR check list (e.g. UIDs for UI elements) \033[0m\n'
-  echo -e '\033[1;30;43mHave events for fun! \033[0m\n'
-  echo -e '\033[1;30;43mClear everything off the board\033[0m\n'
-  echo -e '\033[1;30;43mBoy scout rule\033[0m\n'
-}
 psub() {
   case $1 in
     '') [ -f *.sublime-project ] && sub *.sublime-project || echo 'no sublime-project here' ;;
@@ -1275,8 +1268,6 @@ b64() {
   esac
 
   for i in "$@"; do
-    echo "$i"
-    echo -n "$i" |base64 $decode
-    echo -e '\n'
+    echo -en "$i\n$(echo -n "$i" |base64 $decode)\n"
   done
 }
