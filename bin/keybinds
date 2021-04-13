@@ -1,9 +1,12 @@
 #!/bin/bash
 
+# set -x
+# exec > /tmp/kb.log 2>&1
+
 declare -A nameToLaunchCommand=(\
   [sublime]=sub \
-  [chrome]=google \
-  [brave]=google \
+  [chrome]=$HOME/bin/google \
+  [brave]=$HOME/bin/google \
 )
 
 declare -A defaulted=(\
@@ -17,5 +20,5 @@ if [ -z "$(pgrep $1)" ] || ! ${defaulted[${1-false}]}; then
     $*
   fi
 else
-  bf $1
+  $HOME/bin/bf $1
 fi
