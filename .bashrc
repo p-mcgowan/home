@@ -148,8 +148,3 @@ fi
 
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 export PATH=$PATH:$HOME/source/acrontum/bmw/dsd/config/scripts/
-
-# kubes
-source <(kubectl completion bash)
-# psql pager
-export PAGER='less -S'
