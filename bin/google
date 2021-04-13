@@ -13,6 +13,13 @@ homepage='google.ca'
 
 if [ -f $configFile ]; then
   source $configFile
+else
+  mkdir -p $(dirname $configFile)
+  echo "\
+browser=\"$browser\"
+bookmarks=~/.config/google-chrome/Default/Bookmarks
+logfile=/tmp/google-script.log
+homepage='google.ca'" >$configFile
 fi
 
 usage="\
