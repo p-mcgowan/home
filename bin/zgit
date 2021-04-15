@@ -1,0 +1,68 @@
+#!/bin/bash
+
+set -e -o pipefail
+shopt -s extglob
+
+cd $(git rev-parse --show-toplevel)
+
+thisBranch=$(git rev-parse --abbrev-ref HEAD)
+url=$(git remote get-url --push origin |awk -F '@' '{ sub(/:/, "/");sub(/\.git/, ""); print($2) }')
+page=
+
+usage="$(basename $0) [page]
+will open to the repo page
+page:
+  -b, --branch,                   Open to the current branch
+  -B, --branches                  Open to branches
+  -m, --merge(s)                  Open merges
+  -M, --merge-request             Open new merge request for branch
+  -c, --commit(s)                 Open commits
+  -p, --pipe                      Open pipelines (gitlab only)
+  -v, --version                   Show latest package.json version
+  -h, ---h, --help                Show this menu"
+
+if [[ "$url" =~ github.com ]]; then
+  case $1 in
+    ?(-)B | ?(--)branches) page='branches';;
+    ?(-)b | ?(--)branch) page="/tree/$thisBranch";;
+    ?(-)m | ?(--)merge?(s)) page='pulls';;
+    ?(-)c | ?(--)commit?(s)) page="commits/$thisBranch";;
+    ?(-)M | ?(--)merge-request) page="pull/new/$thisBranch";;
+    # p | pipe | pipeline | pipelines) page='/pipelines';;
+    ?(-)h | ?(--)help) echo "$usage" && exit 0;;
+    '') ;;
+    *) echo unknown page $page; exit 1;;
+  esac
+elif [[ "$url" =~ repos.acrontum.net ]] || [[ "$url" =~ gitlab.test ]] || [[ "$url" =~ gitlab.com ]]; then
+# else
+  case $1 in
+    ?(-)B | ?(--)branches) page='-/branches/all';;
+    ?(-)b | ?(--)branch) page="-/tree/$thisBranch";;
+    ?(-)m | ?(--)merge?(s)) page='merge_requests';;
+    ?(-)M | ?(--)merge-request) page="merge_requests/new?merge_request%5Bsource_branch%5D=$thisBranch";;
+    ?(-)c | ?(--)commit?(s)) page="commits/$thisBranch";;
+    ?(-)p | ?(--)pipe?(line)?(s)) page='pipelines';;
+    ?(-)v | ?(--)version) getVersion "$url/-/raw/develop/package.json";;
+    ?(-)h | ?(--)help) echo "$usage" && exit 0;;
+    '') ;;
+    *) echo unknown page $page; exit 1;;
+  esac
+else
+  echo url not found - $url
+  echo 'git remote get-url --push origin'
+  git remote get-url --push origin
+  echo $'git remote get-url --push origin |awk -F \'@\' \'{ sub(/:/, "/"); sub(/\.git/, ""); print($2) }\''
+  git remote get-url --push origin |awk -F '@' '{ sub(/:/, "/"); sub(/\.git/, ""); print($2) }'
+  exit 1
+fi
+
+if [[ $url =~ gitlab.test ]]; then
+  echo $url
+  url="http://$(echo $url |sed 's/:[0-9]\+//g' )"
+  echo $url
+else
+  url=https://$url
+fi
+
+echo google -w "$url/$page"
+google -w "$url/$page"
