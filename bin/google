@@ -5,6 +5,7 @@
 browser="${GOOGLER_BROWSER:-google-chrome}"
 bookmarks=~/.config/google-chrome/Default/Bookmarks
 # bookmarks=~/.config/google-chrome/Profile\ 1/Bookmarks
+# ~/.config/BraveSoftware/Brave-Browser/Default/Bookmarks
 
 configFile=~/.config/google-script/config
 
