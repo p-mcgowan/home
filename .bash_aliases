@@ -45,6 +45,7 @@ goto() {
     [dsd]=~/source/acrontum/bmw/dsd
     [dsdc]=~/source/acrontum/bmw/dsd/config
     [gen]=~/source/acrontum/github
+    [hc]=~/source/hc
   )
 
   if [ -z "$1" ]; then
@@ -875,18 +876,20 @@ client() {
   NODE_ENV=${NODE_ENV:-development} npm start
 }
 morning() {
-  teams
-  #ts3
-  google -b outlook -b "jira sprint board" -b ghme -b jira-applications
-  # spotify
   case $1 in
     dsd)
+      teams
+      google -b outlook -b "jira sprint board" -b ghme -b jira-applications
       psub dsd
       pmux dsd
     ;;
     gen)
       psub gen
       pmux gen
+    ;;
+    hc)
+      psub hc
+      pmux hc
     ;;
     -d | --dir)
       shift
@@ -899,7 +902,7 @@ morning() {
       ptmux
     ;;
     *)
-      echo "[-d dir] [dsd|gen]"
+      echo "[-d dir] [dsd|gen|hc]"
     ;;
   esac
 }
