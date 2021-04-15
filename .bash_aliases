@@ -1133,6 +1133,7 @@ zgoto() {
     ?(dsd-)user-management) path=user-management/user-management ;;
     dsd) path=/ ;;
     dsdc) path=config ;;
+    pg) path=config/postgres/backups ;;
     *) echo nop && return 1 ;;
   esac
 
