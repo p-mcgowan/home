@@ -672,9 +672,12 @@ alias wh='watcherHelper'
 alias dsl="awk -F'=' 'NR == 2 { printf(gensub(/\"/, \"\", \"g\", \$2)); }' ~/work/notes |xclip && echo 'middle clickable'"
 alias qnumber="awk -F'=' '\$1 ~ /qnumber/ { printf(\$2); }' ~/work/notes | tee /dev/tty |xclip && echo -e \"\nmiddle clickable\""
 kcc() {
-  [[ -z "$1" ]] && kubectl config get-contexts | awk -F '  +' '{
-    if ($1 == "*") {
-       printf("\033[0;1m%s  %s\033[0;0m\n", $2, $3);
+  [ ! -t 1 ]
+  isTTY=$?
+
+  [[ -z "$1" ]] && kubectl config get-contexts | awk -v isTTY=$isTTY -F '  +' '{
+    if ($1 == "*" && isTTY) {
+      printf("\033[0;1m%s  %s\033[0;0m\n", $2, $3);
     } else {
        printf("%s  %s\n", $2, $3);
     }
