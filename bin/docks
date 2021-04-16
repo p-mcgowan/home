@@ -214,7 +214,8 @@ options:
       done
     ;;
     -v | --verbose)
-      docker ps -a |awk -F '[[:space:]][[:space:]]+' '{ print $NF, "\t", $5, "\t", $6 }' |column -ts $'\t'
+      docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Mounts}}\t{{.Networks}}\t{{.Ports}}" |sed 's/\/tcp\|0.0.0.0://g'
+      # docker ps -a |awk -F '[[:space:]][[:space:]]+' '{ print $NF, "\t", $5, "\t", $6 }' |column -ts $'\t'
     ;;
     -vv)
       docker ps -a
@@ -242,8 +243,11 @@ options:
       fi
     ;;
     -h | --help) echo "$usage" ;;
-    '')
-      docker ps -a |awk '
+    -- | '' | -a)
+      if [ "$1" != "-a" ]; then
+        shift
+      fi
+      docker ps $* |awk '
         FNR == 1 {
           s = $0
           # find names that can contain a single space, followed by 2+ spaces or the end of the line
@@ -274,12 +278,12 @@ options:
           }
 
           formatted_ports = "--";
-          matchIndex = match(port_string, /([0-9]{4,5}->[0-9]{4,5}|[0-9]{4,5})\//)
+          matchIndex = match(port_string, /((:::)?[0-9]{2,5}->[0-9]{2,5}|(:::)?[0-9]{2,5})\//);
 
           while(matchIndex != 0) {
             a_port = substr(port_string, RSTART, RLENGTH - 1);
             port_string = substr(port_string, RSTART + RLENGTH - 1);
-            matchIndex = match(port_string, /([0-9]{4,5}->[0-9]{4,5}|[0-9]{4,5})\//);
+            matchIndex = match(port_string, /((:::)?[0-9]{2,5}->[0-9]{2,5}|(:::)?[0-9]{2,5})\//);
 
             if (formatted_ports == "--") {
               formatted_ports = a_port;
