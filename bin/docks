@@ -243,11 +243,9 @@ options:
       fi
     ;;
     -h | --help) echo "$usage" ;;
-    -- | '' | -a)
-      if [ "$1" != "-a" ]; then
-        shift
-      fi
-      docker ps $* |awk '
+    -- | '')
+      shift
+      docker ps ${*:--a} |awk '
         FNR == 1 {
           s = $0
           # find names that can contain a single space, followed by 2+ spaces or the end of the line
