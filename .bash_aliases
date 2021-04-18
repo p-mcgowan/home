@@ -891,6 +891,7 @@ morning() {
       pmux gen
     ;;
     hc)
+      google -b hcgh
       psub hc
       pmux hc
     ;;
@@ -941,6 +942,7 @@ pmux() {
         goto $1;
         tmux new-session \; \
           split-window -v \; \
+          send-keys -t0 'docks -u' C-m \; \
           select-pane -t0 \;
       fi
     ;;
