@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# set -x
-
 # docks -u -L
 # docks -L -u
 
@@ -17,6 +15,8 @@ options:
     -a, --all-containers     Target all containers
     -f, --compose-file       Set compose file
     -D, --dry-run            Print matching targets and exit
+    -v, --verbose            Log verbosely (multiple invocations increase verbosity)
+    --debug                  Print actions without executing
 
   Actions:
     -F, --fire               Remove all containers and images completely
@@ -31,6 +31,17 @@ options:
     -o, --compose-args ARGS  Pass ARGS into docker build (only applies when -r is set)
     -L, --local-fs           Try to find docker-compose-local-fs.yml
     -h, --help               Show this menu"
+
+log() {
+  if [ -n "$VERBOSE" ]; then
+    echo >&2 "$@"
+  fi
+}
+
+error() {
+  echo >&2 "$@"
+  exit 1
+}
 
 confirm() {
   if [ -z "$YES" ]; then
@@ -158,6 +169,10 @@ getUpLocation() {
       if [[ $DIRNAME =~ $re ]]; then
         DIRNAME=gs;
       fi
+      re="\\bsource\/hc\\b"
+      if [[ $DIRNAME =~ $re ]]; then
+        DIRNAME=hc;
+      fi
     fi
   else
     DIRNAME="$1"
@@ -167,18 +182,25 @@ getUpLocation() {
     ps) DIRNAME="/home/pat/source/isarbits/linde-plantserv2/docker/dev" ;;
     vc) DIRNAME="/home/pat/source/isarbits/v2c/docker/dev" ;;
     gs) DIRNAME="/home/pat/source/isarbits/minq-gesu-2/infrastructure/docker" ;;
+    hc) DIRNAME="/home/pat/source/hc/ops" ;;
   esac
+
+  log "COMPOSE_FILE:$COMPOSE_FILE"
+  log "DIRNAME:$DIRNAME"
 
   if [ -n "$OPT_LOCAL" ]; then
     if [ -f $DIRNAME/docker-compose-local-fs.yml ]; then
       echo "$DIRNAME"
+      return
     elif [ -f $DIRNAME/docker-compose.yml ]; then
       echo "$DIRNAME"
+      return
     fi
-  else
-    if [ -f $DIRNAME/docker-compose.yml ]; then
-      echo "$DIRNAME"
-    fi
+  fi
+
+  if [ -f $DIRNAME/docker-compose.yml ]; then
+    echo "$DIRNAME"
+    return
   fi
 }
 
@@ -297,7 +319,7 @@ options:
 }
 
 if [ -z "$1" ]; then
-  echo "$USAGE" && exit 1
+  error "$USAGE"
 fi
 
 while [ "${1:0:1}" == "-" ] && [ -z "$DONE" ]; do
@@ -336,6 +358,7 @@ while [ "${1:0:1}" == "-" ] && [ -z "$DONE" ]; do
     --list) dockerList $* ;;
     --dry-run) OPT_DRY_RUN=true ;;
     --iregex) IREGEX=$1 && shift ;;
+    --verbose) VERBOSE=$((${VERBOSE:-0} + 1)) ;;
     --help) echo "$USAGE" && exit 0 ;;
     --) DONE=true; shift ;;
     *)
@@ -371,11 +394,11 @@ while [ "${1:0:1}" == "-" ] && [ -z "$DONE" ]; do
           l) dockerList $* ;;
           D) OPT_DRY_RUN=true ;;
           R) IREGEX=$1 && shift ;;
+          v) VERBOSE=$((${VERBOSE:-0} + 1)) ;;
           h) echo "$USAGE" && exit 0 ;;
           *)
             echo 'Unknown option "'$ARG'"'
-            echo "$USAGE"
-            exit 1
+            error "$USAGE"
           ;;
         esac
       done
@@ -383,20 +406,26 @@ while [ "${1:0:1}" == "-" ] && [ -z "$DONE" ]; do
   esac
 done
 
+if [ ${VERBOSE:-0} -gt 1 ]; then
+  set -x
+fi
+
+if [ -n "$DOWN" ] && ([ -n "$UP" ] || [ -n "$UP_ONLY" ]); then
+  error -e "only one of up or down can be specified\n\n$USAGE"
+fi
+
 if [ -n "$UP" ] || [ -n "$UP_ONLY" ]; then
   UP_WHERE=$(getUpLocation "${UP_ONLY:-$UP}")
   if [ -z "$UP_WHERE" ]; then
-    echo "Could not find build path: ${UP_ONLY:-$UP} " $UP_WHERE
-    exit 1
-  else
-    echo "$UP_WHERE"
+    error "Could not find build path: ${UP_ONLY:-$UP} " $UP_WHERE
   fi
+
+  log "$UP_WHERE"
 fi
 
 re='^(true)?$'
 if ! [[ $DESTROY$CLEAN =~ $re ]]; then
-    echo 'Only one of -f and -c can be set'
-    exit 1
+  error 'Only one of -f and -c can be set'
 fi
 
 if [ -n "$DESTROY" ]; then
@@ -433,10 +462,9 @@ fi
 if [ -n "$DOWN" ]; then
   UP_WHERE=$(getUpLocation "${UP_ONLY:-$UP}")
   if [ -z "$UP_WHERE" ] && [ -z "$ALL_CONTAINERS" ] && [ -z "$REGEX" ]; then
-    echo "Could not find build path: ${UP_ONLY:-$UP} " $UP_WHERE
-    exit 1
+    error "Could not find build path: ${UP_ONLY:-$UP} " $UP_WHERE
   else
-    echo "$UP_WHERE"
+    log "$UP_WHERE"
   fi
   killContainers $CONTAINERS
 fi
