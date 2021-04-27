@@ -35,11 +35,15 @@ getStatus() {
   fi
 }
 
+declare -A ignore=(['frontdesk-automation-tests']=true)
+
 doStatus() {
   for folder in $(find $@ -maxdepth 3 -type d -name .git); do
     (
-      cd $(dirname $folder);
-      getStatus;
+      if [ -z ${ignore[$(basename $(dirname $folder))]} ]; then
+        cd $(dirname $folder);
+        getStatus;
+      fi
     )
   done
 }
