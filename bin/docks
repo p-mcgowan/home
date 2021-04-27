@@ -26,10 +26,10 @@ options:
     -u, --up [LOC]           Run docker-compose up -d --build after
     -U, --up-only [LOC]      Run docker-compose up -d --build only
     -l, --list [ARGS]        Run docker ps (formerly docks)
+    -L, --log                Run compose logs
 
   Options:
     -o, --compose-args ARGS  Pass ARGS into docker build (only applies when -r is set)
-    -L, --local-fs           Try to find docker-compose-local-fs.yml
     -h, --help               Show this menu"
 
 log() {
@@ -93,10 +93,6 @@ killContainers() {
 }
 
 buildContainers() {
-  # COMPOSE_ARGS="-f docker-compose-local-fs.yml -p mock"
-  if [ -n "$OPT_LOCAL" ]; then
-    COMPOSE_ARGS="-f docker-compose-local-fs.yml $COMPOSE_ARGS"
-  fi
   if [ -n "$COMPOSE_FILE" ]; then
     COMPOSE_ARGS="-f $(basename $COMPOSE_FILE) $COMPOSE_ARGS"
   fi
@@ -187,16 +183,6 @@ getUpLocation() {
 
   log "COMPOSE_FILE:$COMPOSE_FILE"
   log "DIRNAME:$DIRNAME"
-
-  if [ -n "$OPT_LOCAL" ]; then
-    if [ -f $DIRNAME/docker-compose-local-fs.yml ]; then
-      echo "$DIRNAME"
-      return
-    elif [ -f $DIRNAME/docker-compose.yml ]; then
-      echo "$DIRNAME"
-      return
-    fi
-  fi
 
   if [ -f $DIRNAME/docker-compose.yml ]; then
     echo "$DIRNAME"
