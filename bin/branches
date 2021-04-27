@@ -20,17 +20,25 @@ doCompare() {
     read ahead behind < <(git rev-list --left-right --count $branch...$OPT_BRANCH)
     local msg="even"
     if [ "$ahead" -ne 0 ] || [ "$behind" -ne 0 ]; then
-      msg=$'\e[0;91m-'"$behind"$'\e[0m/\e[92m'"+$ahead"$'\e[0m'
+      if [ "$TERM" != dumb ]; then
+        msg=$'\e[0;91m-'"$behind"$'\e[0m/\e[92m'"+$ahead"$'\e[0m'
+      else
+        msg="-$behind/+$ahead"
+      fi
     fi
     local colour=
+    local reset=
+
     if [ -n "${onlyLocal[$shortName]}" ]; then
-      colour=$'\e[1;36m'
-    elif [ -n "${onlyRemote[$shortName]}" ]; then
-      colour=$'\e[0;33m'
-    else
-      if [[ $branch =~ remotes\/origin\/ ]]; then
-        return
+      if [ "$TERM" != dumb ]; then
+        colour=$'\e[1;36m'
       fi
+    elif [ -n "${onlyRemote[$shortName]}" ]; then
+      if [ "$TERM" != dumb ]; then
+        colour=$'\e[0;33m'
+      fi
+    elif [[ $branch =~ remotes\/origin\/ ]]; then
+      return
     fi
 
     if [ "$shortName" == "$thisBranch" ]; then
@@ -38,7 +46,7 @@ doCompare() {
     else
       printf "  "
     fi
-    printf "$colour%-$((longestName + 2))s%s\e[0m\n" "$branch" "$msg"
+    printf "$colour%-$((longestName + 2))s%s${reset}\n" "$branch" "$msg"
 
     if [ -n "$OPT_VERBOSE" ] && [ "$msg" != "even" ]; then
       if [ $((behind + ahead)) -le 10 ]; then
@@ -142,7 +150,11 @@ if [ -z "$OPT_ONLY_BRANCH" ]; then
     echo ${remoteBranches[@]}
     exit 0
   fi
-  printf "\e[1;36mOnly Local  \e[0;33mOnly Remote\e[0m\n\n"
+  if [ "$TERM" == dumb ]; then
+    printf "Only Local  Only Remote\n\n"
+  else
+    printf "\e[1;36mOnly Local  \e[0;33mOnly Remote\e[0m\n\n"
+  fi
   while read branch; do
     doCompare $branch
   done < <(git branch -a --sort=-committerdate |sed 's/^[\*\ ]\ //g')
