@@ -278,7 +278,7 @@ alias restart-nginx='sudo sh -c "nginx -t && service nginx restart"'
 
 alias gitroot='cd $(git rev-parse --show-toplevel)'
 alias gitdefault="git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print($2); }'"
-alias tags='git fetch --tags && git tag --list --format="%(refname:short) [%(creatordate:iso)]" |sort -Vr'
+alias tags='git fetch --tags && git tag --list --sort=taggerdate --format="%(refname:short) [%(creatordate:iso)]"'
 gdiff() {
   args=
   files=
@@ -373,9 +373,9 @@ glog() {
   shift
   case $arg1 in
     -n | --network | n)
-      git log --all --decorate --oneline --graph $* ;;
+      git log --all --decorate --oneline --graph --date=format:"%Y-%m-%d %H:%M" --pretty=format:"%C(auto)%h %C(dim)%ad | %C(auto)[%an] %s %d" $* ;;
     -s | --short | s)
-      git log --pretty=format:'%h %ad | %s%d [%an]' $colour --graph --date=short $* ;;
+      git log --pretty=format:'%C(auto)%h %ad | %s%d [%an]' --color --graph --date=short $* ;;
     -d | --diff | d)
       git log -p $* ;;
     -f | --from | f)
@@ -393,9 +393,9 @@ glog() {
       fi
       git log $cmd --date=short --pretty=format:'%h %ad %an | %s%d'
     ;;
-    -m | --medium | m)
-      git log -n1 --color --pretty=format:"%C(auto)%h %C(dim)%ad %C(auto)%s%d" --date=format:"%Y-%m-%d %H:%M"
-    ;;
+    # -m | --medium | m)
+    #   git log -n1 --color --pretty=format:"%C(auto)%h %C(dim)%ad %C(auto)%s%d" --date=format:"%Y-%m-%d %H:%M"
+    # ;;
     -h | --help | h)
       echo "glog [-s,--short | -d,--diff | -n,--network | -h,--help] [-f,--from [SHA or date]]";;
     *)
@@ -493,13 +493,6 @@ new-repo() {
     exit 1
   fi
   curl https://api.github.com/user/repos -H 'Content-Type: application/json' -H "Authorization: token $(cat ~/.ssh/github_repo_key)" -d $JSON
-}
-deletebranches() {
-  local branches=()
-  for branch in "$@"; do
-    branches+=(":$(echo $branch |sed -e 's|remotes/origin/||g')")
-  done
-  git push --no-verify origin ${branches[@]}
 }
 ismerged() {
   branches -r |sed 's/\ /\n/g' |while read branch; do
@@ -880,7 +873,7 @@ client() {
 morning() {
   teams
   #ts3
-  google -b outlook -b "jira sprint board" -b ghme -b jira-applications
+  google -b outlook -b "jira sprint board" -b ghme -b jira-applications -b dsd hub
   # spotify
   case $1 in
     dsd)
@@ -1111,6 +1104,7 @@ zgoto() {
     ?(dsd-)admin-panel-backend) path=admin-panel/admin-panel-backend ;;
     ?(dsd-)authentication) path=authentication/authentication ;;
     ?(dsd-)backend-main) path=frontdesk/backend_main ;;
+    ?(dsd-)frontend) path=frontdesk/frontend ;;
     ?(dsd-)battery-service) path=battery-service/battery-service ;;
     ?(dsd-)car-park-backend) path=car-park/car-park-backend ;;
     ?(dsd-)check-control-messages) path=check-control-messages/check-control-messages ;;
