@@ -676,8 +676,13 @@ kcc() {
        printf("%s  %s\n", $2, $3);
     }
   }' |column -t || {
-    [[ "$1" == -p ]] && kubectl config get-contexts |awk '$1 == "*" { print($2); }' || \
-    kubectl config use-context "$1"
+    if [[ "$1" == -p ]]; then
+      kubectl config get-contexts |awk '$1 == "*" { print($2); }'
+    elif [[ "$1" == -l ]]; then
+       kubectl config get-contexts |awk 'NR > 1 { if ($1 == "*") { print($2); } else { print($1); } }'
+    else
+      kubectl config use-context "$1"
+    fi
   }
 }
 fast-mocha() {
