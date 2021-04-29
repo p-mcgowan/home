@@ -32,10 +32,12 @@ doCompare() {
     if [ -n "${onlyLocal[$shortName]}" ]; then
       if [ "$TERM" != dumb ]; then
         colour=$'\e[1;36m'
+        reset=$'\e[0;0m'
       fi
     elif [ -n "${onlyRemote[$shortName]}" ]; then
       if [ "$TERM" != dumb ]; then
         colour=$'\e[0;33m'
+        reset=$'\e[0;0m'
       fi
     elif [[ $branch =~ remotes\/origin\/ ]]; then
       return
