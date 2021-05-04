@@ -1,0 +1,47 @@
+#!/bin/bash
+
+scriptName=$(basename $0)
+delim=';'
+usage="$scriptName [options] file
+options
+  -d, --delim DELIM   Use DELIM separator (regex)"
+
+bail() {
+  echo >&2 "$usage"
+  exit ${1:-1}
+}
+
+if [ -z "$*" ]; then
+  echo "ctj [options] file"
+  exit 1
+fi
+
+
+while [ -n "$1" ]; do
+  case "$1" in
+    -d | --delim) delim="$2"; shift ;;
+    -h | --help) bail 0 ;;
+    -*)  echo "unknown option '$1'" ; bail 1 ;;
+    *) filename="$1" ;;
+  esac
+  shift
+done
+
+if [ ! -f "$filename" ]; then
+  echo "file '$filename' not found"
+  exit 1
+fi
+
+awk -F"$delim" -v rows=$(wc -l < "$filename") 'NR == 1 {
+  for (i = 1; i <= NF; i++) {
+    names[i] = ($i);
+  }
+  print("[");
+}
+NR > 1 {
+  printf("  { ");
+  for (i = 1; i <= NF; i++) {
+    printf("\"%s\": \"%s\"%s", names[i], $i, (i == NF ? " " : ", "));
+  }
+  printf("}%s", NR < rows ? ",\n" : "\n]\n");
+}' "$filename"
