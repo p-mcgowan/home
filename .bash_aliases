@@ -127,6 +127,7 @@ vivaldi() { command vivaldi "$@" &>/tmp/vivaldi.log & }
 pinta() { command pinta "$@" &>/tmp/pinta.log & }
 slack() { SLACK_DEVELOPER_MENU=true command slack "$@" &>/tmp/slack.log & }
 totem() { command totem "$@" &>/tmp/totem.log & }
+signal() { command signal-desktop "$@" &>/tmp/signal.log & }
 postman() { /home/pat/programs/postman/postman $@ &>/dev/postman & }
 tor-browser() { /home/pat/programs/tor-browser_en-US/Browser/start-tor-browser --detatch $@ &>/tmp/tor.log & }
 alias tweaks='gnome-tweak-tool 2>/tmp/tweaks.log &'
@@ -209,6 +210,9 @@ sound() {
     hp)
       pacmd set-card-profile 1 output:analog-stereo+input:analog-stereo
       pacmd set-default-sink alsa_output.pci-0000_00_1f.3.analog-stereo
+    ;;
+    *)
+      gnome-control-center sound &
     ;;
   esac
 }
