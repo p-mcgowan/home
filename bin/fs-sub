@@ -1,0 +1,8 @@
+#!/bin/bash
+
+prefs="/home/patrickmcgowan/.config/sublime-text/Packages/User/Preferences.sublime-settings"
+
+fs=9
+grep -q '"font_size": '$fs $prefs && fs=18;
+
+sed -i "s/\"font_size\": [0-9]\+,/\"font_size\": $fs,/g" $prefs
