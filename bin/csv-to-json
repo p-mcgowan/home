@@ -32,16 +32,49 @@ if [ ! -f "$filename" ]; then
   exit 1
 fi
 
-awk -F"$delim" -v rows=$(wc -l < "$filename") 'NR == 1 {
-  for (i = 1; i <= NF; i++) {
-    names[i] = ($i);
+# remove crlf
+sed -i -e 's/^M$//' -e '1s/^\xEF\xBB\xBF//' "$filename"
+
+if [ -n "$SQL" ]; then
+  awk -F"$delim" -v rows=$(wc -l < "$filename") 'NR == 1 {
+    printf("INSERT INTO schema_name.table_name\n  (");
+    for (i = 1; i <= NF; i++) {
+      names[i] = ($i);
+      printf("\"%s\"", $i);
+      if (i != NF) {
+        printf(", ");
+      }
+    }
+    printf(")\nVALUES\n");
   }
-  print("[");
-}
-NR > 1 {
-  printf("  { ");
-  for (i = 1; i <= NF; i++) {
-    printf("\"%s\": \"%s\"%s", names[i], $i, (i == NF ? " " : ", "));
+  NR > 1 {
+    printf("  (");
+    for (i = 1; i <= NF; i++) {
+      if ($1 ~ /^[0-9]+$/) {
+
+      } else {
+        printf("'\''%s'\''", gensub(/'\''/, "\\\\\'\''", "g", $i), (i == NF ? " " : ", "));
+      }
+      if (i != NF) {
+        printf(", ");
+      }
+    }
+    printf(")%s", NR < rows ? ",\n" : "\nON CONFLICT DO NOTHING;\n");
+  }' "$filename"
+else
+  awk -F"$delim" -v rows=$(wc -l < "$filename") 'NR == 1 {
+    for (i = 1; i <= NF; i++) {
+      names[i] = ($i);
+    }
+    print("[");
   }
-  printf("}%s", NR < rows ? ",\n" : "\n]\n");
-}' "$filename"
+  NR > 1 {
+    printf("  { ");
+    for (i = 1; i <= NF; i++) {
+      printf("\"%s\"\n", names[i]);
+      printf("\"%s\": \"%s\"%s", names[i], gensub(/"/, "\\\\\"", "g", $i), (i == NF ? " " : ", "));
+    }
+    printf("}%s", NR < rows ? ",\n" : "\n]\n");
+    exit(0)
+  }' "$filename"
+fi
