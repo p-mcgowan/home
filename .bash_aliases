@@ -546,7 +546,7 @@ asciitree() { tree "$*" | sed 's/├/\+/g; s/─/-/g; s/└/\\/g'; }
 alias bt='bf gnome-terminal'
 # Resize term
 ts() {
-  resize -s ${1-25} ${2-80} &>/dev/null
+  resize -s ${1:-25} ${2:-80} &>/dev/null
 }
 # Random crap
 imout() {
@@ -884,6 +884,7 @@ morning() {
       pmux gen
     ;;
     hc)
+      slack
       google -b hcgh
       psub hc
       pmux hc

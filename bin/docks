@@ -178,7 +178,7 @@ getUpLocation() {
     ps) DIRNAME="/home/pat/source/isarbits/linde-plantserv2/docker/dev" ;;
     vc) DIRNAME="/home/pat/source/isarbits/v2c/docker/dev" ;;
     gs) DIRNAME="/home/pat/source/isarbits/minq-gesu-2/infrastructure/docker" ;;
-    hc) DIRNAME="/home/pat/source/hc/ops" ;;
+    hc) DIRNAME="/home/pat/source/hc" ;;
   esac
 
   log "COMPOSE_FILE:$COMPOSE_FILE"
