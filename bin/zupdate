@@ -18,7 +18,8 @@ shouldSkip() {
     \\binterface-gen\\b \
     \\bconfig\\b \
     \\bbkp\\b \
-    \\bfrontdesk-automation-tests\\b \
+    \\bfe-tests\\b \
+    \\bgitlab-template\\b \
   ; do
     if [[ $project =~ $blacklist ]]; then
       return 0
