@@ -109,7 +109,7 @@ alias recentinstalls='grep " install " /var/log/dpkg.log'
 alias minecraft='java -jar ~/.minecraft/Minecraft.jar &>/dev/null &'
 alias forge='cd .minecraft; java -jar ~/.minecraft/Minecraft.jar &>/dev/null &'
 alias servercraft='java -jar -Xmx1024M -Xms1024M -jar minecraft_server.1.6.4.jar nogui'
-alias brave='brave &> /tmp/brave.log &'
+alias brave='brave-browser &> /tmp/brave.log &'
 vlc() {
   args="$*"
   if [[ "$*" =~ \-t\ ?([0-9]{1,2}(:[0-9]{1,2})?(:[0-9]{1,2})?) ]]; then
