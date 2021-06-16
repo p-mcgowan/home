@@ -936,8 +936,9 @@ pmux() {
       tmux new-session \; \
         split-window -v \; \
         send-keys -t0 'docks -u config' C-m \; \
-        select-pane -t1 \; \
-        send-keys -t1 'welcome-message' C-m \;
+        select-pane -t0 \;
+        # select-pane -t1 \; \
+        # send-keys -t1 'welcome-message' C-m \;
     ;;
     *)
       local target=$(goto -c $1)
@@ -1117,8 +1118,10 @@ zgoto() {
   local swagger=
   case "$1" in
     ?(dsd-)admin-panel-backend) path=admin-panel/admin-panel-backend ;;
+    ?(dsd-)admin-panel) path=admin-panel/admin-panel ;;
     ?(dsd-)authentication) path=authentication/authentication ;;
     ?(dsd-)backend-main) path=frontdesk/backend_main ;;
+    ?(dsd-)backend_main) path=frontdesk/backend_main ;;
     ?(dsd-)frontend) path=frontdesk/frontend ;;
     ?(dsd-)battery-service) path=battery-service/battery-service ;;
     ?(dsd-)car-park-backend) path=car-park/car-park-backend ;;
@@ -1134,8 +1137,10 @@ zgoto() {
     ?(dsd-)scheduler-service) path=scheduler-service/scheduler-service ;;
     ?(dsd-)service-partner) path=service-partner/service-partner ;;
     ?(dsd-)sim-card) path=sim_card/sim_card ;;
+    ?(dsd-)sim_card) path=sim_card/sim_card ;;
     ?(dsd-)technical-actions) path=technical-actions/technical-actions ;;
     ?(dsd-)technical-admin-panel-backend) path=technical-admin-panel/technical-admin-panel-backend ;;
+    ?(dsd-)technical-admin-panel) path=technical-admin-panel/technical-admin-panel ;;
     ?(dsd-)tires-machine-consumer) path=tires-machine-consumer/tires-machine-consumer ;;
     ?(dsd-)tires-machine-receiver) path=tires-machine-receiver/tires-machine-receiver ;;
     ?(dsd-)tires-service) path=tires-service/tires-service ;;
@@ -1143,7 +1148,7 @@ zgoto() {
     dsd) path=/ ;;
     dsdc) path=config ;;
     pg) path=config/postgres/backups ;;
-    *) echo nop && return 1 ;;
+    *) echo "path '$1' not found" && return 1 ;;
   esac
 
   case "$2" in
