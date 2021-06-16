@@ -50,11 +50,7 @@ if [ -n "$SQL" ]; then
   NR > 1 {
     printf("  (");
     for (i = 1; i <= NF; i++) {
-      if ($1 ~ /^[0-9]+$/) {
-
-      } else {
-        printf("'\''%s'\''", gensub(/'\''/, "\\\\\'\''", "g", $i), (i == NF ? " " : ", "));
-      }
+      printf("'\''%s'\''", gensub(/'\''/, "\\\\\'\''", "g", $i), (i == NF ? " " : ", "));
       if (i != NF) {
         printf(", ");
       }
@@ -71,10 +67,8 @@ else
   NR > 1 {
     printf("  { ");
     for (i = 1; i <= NF; i++) {
-      printf("\"%s\"\n", names[i]);
       printf("\"%s\": \"%s\"%s", names[i], gensub(/"/, "\\\\\"", "g", $i), (i == NF ? " " : ", "));
     }
     printf("}%s", NR < rows ? ",\n" : "\n]\n");
-    exit(0)
   }' "$filename"
 fi
