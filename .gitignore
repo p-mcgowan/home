@@ -2,7 +2,6 @@
 /*/
 !bin/
 !.android_aliases
-!mystuff
 !.androidrc
 !.bash_aliases
 !.bash_hosts
