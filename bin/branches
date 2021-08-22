@@ -61,12 +61,17 @@ doCompare() {
 }
 
 OPT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+if [ -z "$OPT_BRANCH" ]; then
+  echo trying to set main branch
+  git remote set-head origin --auto
+  OPT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+fi
+OPT_BRANCH=${OPT_BRANCH:-develop}
 readingLocal=true
 OPT_VERBOSE=
 OPT_ONLY_BRANCH=
 OPT_ONLY_LOCAL=
 OPT_ONLY_REMOTE=
-OPT_BRANCH=${OPT_BRANCH:-develop}
 thisBranch=$(git rev-parse --abbrev-ref HEAD)
 
 while [ -n "$1" ]; do
