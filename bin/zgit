@@ -18,16 +18,18 @@ page:
   -M, --merge-request             Open new merge request for branch
   -c, --commit(s)                 Open commits
   -p, --pipe                      Open pipelines (gitlab only)
+  -f, --files                     Open file finder
   -v, --version                   Show latest package.json version
   -h, ---h, --help                Show this menu"
 
 if [[ "$url" =~ github.com ]]; then
   case $1 in
     ?(-)B | ?(--)branches) page='branches';;
-    ?(-)b | ?(--)branch) page="/tree/$thisBranch";;
+    ?(-)b | ?(--)branch) page="tree/$thisBranch";;
     ?(-)m | ?(--)merge?(s)) page='pulls';;
     ?(-)c | ?(--)commit?(s)) page="commits/$thisBranch";;
     ?(-)M | ?(--)merge-request) page="pull/new/$thisBranch";;
+    ?(-)f | ?(--)files) page="find/${thisBranch}";;
     # p | pipe | pipeline | pipelines) page='/pipelines';;
     ?(-)h | ?(--)help) echo "$usage" && exit 0;;
     '') ;;
@@ -42,6 +44,7 @@ elif [[ "$url" =~ repos.acrontum.net ]] || [[ "$url" =~ gitlab.test ]] || [[ "$u
     ?(-)M | ?(--)merge-request) page="merge_requests/new?merge_request%5Bsource_branch%5D=$thisBranch";;
     ?(-)c | ?(--)commit?(s)) page="commits/$thisBranch";;
     ?(-)p | ?(--)pipe?(line)?(s)) page='pipelines';;
+    ?(-)f | ?(--)files) page="-/find_file/${thisBranch}";;
     ?(-)v | ?(--)version) getVersion "$url/-/raw/develop/package.json";;
     ?(-)h | ?(--)help) echo "$usage" && exit 0;;
     '') ;;
