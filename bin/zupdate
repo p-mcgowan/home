@@ -66,12 +66,8 @@ resetRepo() {
     return 0
   fi
 
-  while ! git fetch --all --prune --tags --prune-tags --keep 2>/dev/null; do
-    echo 'retrying'
-  done;
-  while ! git merge 2>/dev/null; do
-    echo 'retrying'
-  done
+  git fetch --all --prune --tags --prune-tags --keep
+  git merge
 
   echo
   if [ -n "$(branches -l)" ]; then
@@ -97,7 +93,6 @@ resetGits() {
         if [[ $folder =~ $test ]]; then
           cd $(dirname $folder)
           echo -e "\n$(projectName)"
-          resetRepo
           continue
         fi
       done
