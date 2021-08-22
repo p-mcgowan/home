@@ -45,6 +45,7 @@ goto() {
     [dsd]=~/source/acrontum/bmw/dsd
     [dsdc]=~/source/acrontum/bmw/dsd/config
     [gen]=~/source/acrontum/github
+    [bbox]=~/source/acrontum/blue-box
     [hc]=~/source/hc
   )
 
@@ -193,12 +194,19 @@ setzoom() {
 alias fuckyounumlock="xmodmap -e keycode 77 = ISO_Level3_Shift Num_Lock"
 alias mouseFucked='echo Fixing the damn thing, do not cancel this...; compiz --replace &'
 alias monitorFucked='xset dpms force off'
+alias trackpadFucked='sudo sh -c "rmmod psmouse && modprobe psmouse proto=imps"'
 alias volume='pactl -- set-sink-volume 0'
 # alias specs='inxi -Fxzd'
 alias specs='inxi -Fdflmopuxz' # -m (mem) requires root
 alias fixdisplays='xrandr --output HDMI-0 --left-of DVI-I-0 --auto'
 sound() {
   case "$1" in
+    -t | --test)
+      paplay $(find /usr/share/sounds/ -name '*.ogg' |head -n1)
+    ;;
+    -s | --set-default)
+      pactl set-default-sink $(pactl list short sinks |awk '{printf($2); exit;}')
+    ;;
     tv)
       pacmd set-card-profile 1 output:hdmi-stereo-extra1+input:analog-stereo
       pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo-extra1
@@ -283,7 +291,7 @@ alias restart-nginx='sudo sh -c "nginx -t && service nginx restart"'
 
 alias gitroot='cd $(git rev-parse --show-toplevel)'
 alias gitdefault="git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print($2); }'"
-alias tags='git fetch --tags && git tag --list --sort=taggerdate --format="%(refname:short) [%(creatordate:iso)]"'
+alias tags='git fetch --tags && git tag --list --sort=creatordate --format="%(refname:short) [%(creatordate:iso)]"'
 gdiff() {
   args=
   files=
@@ -570,48 +578,72 @@ function fire! { echo -n '0-118-999-881-999-119-725'; sleep 2; echo 3; }
 instant-server() {
   local port=${1:-${PORT:-8080}}
   local spa=${2-true}
-  node -e "
-  const http = require('http');
-  const fs = require('fs');
-  const path = require('path');
-  const index = path.resolve(process.cwd(), 'index.html');
-  const conType = s => ({
-    '.html': 'text/html',
-    '.css': 'text/css',
-    '.xml': 'text/xml',
-    '.gif': 'image/gif',
-    '.jpeg': 'image/jpeg',
-    '.jpg': 'image/jpeg',
-    '.js': 'application/x-javascript',
-    '.txt': 'text/plain',
-    '.png': 'image/png',
-    '.ico': 'image/x-icon',
-    '.bmp': 'image/x-ms-bmp' }[path.extname(s)] || 'application/octet-stream');
-  http.createServer(async (i, o, n) => {
-    o.on('finish', () => {
-      let ip = i.headers['x-forwarded-for'] || i.connection.remoteAddress;
-      console.log(\`\${ip} \${i.method} \${i.url} => \${o.statusCode}\`);
-    });
-    const file = path.resolve(process.cwd(), (i.url || '').replace(/^\//, '').replace(/[?#].*/, ''));
-    const fExists = await fs.promises.access(file)
-      .then(() => true)
-      .catch(() => false);
-    if (fExists && fs.statSync(file).isFile()) {
-      o.setHeader('Content-Type', conType(file));
-      o.writeHead(200);
-      fs.createReadStream(file).pipe(o);
-    } else {
-      if ($spa) {
+  node -e "$(cat <<EOF
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const index = path.resolve(process.cwd(), 'index.html');
+const conType = s => ({
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.xml': 'text/xml',
+  '.gif': 'image/gif',
+  '.jpeg': 'image/jpeg',
+  '.jpg': 'image/jpeg',
+  '.js': 'application/x-javascript',
+  '.txt': 'text/plain',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.bmp': 'image/x-ms-bmp' }[path.extname(s)] || 'application/octet-stream');
+
+http.createServer(async (i, o, n) => {
+  o.on('finish', () => {
+    let ip = i.headers['x-forwarded-for'] || i.connection.remoteAddress;
+    console.log(\`\${ip} \${i.method} \${i.url} => \${o.statusCode}\`);
+  });
+  const target = (i.url || '').replace(/^\//, '').replace(/[?#].*/, '');
+  const file = path.resolve(process.cwd(), target);
+  const fExists = await fs.promises.access(file)
+    .then(() => fs.promises.stat(file).then(s => !s.isDirectory()))
+    .catch(() => false);
+
+  if (fExists && fs.statSync(file).isFile()) {
+    o.setHeader('Content-Type', conType(file));
+    o.writeHead(200);
+    fs.createReadStream(file).pipe(o);
+  } else {
+    if ($spa) {
+      if ((target === '/' || target === '')) {
+        const indexExists = await fs.promises
+          .stat(index)
+          .then((s) => s.isFile())
+          .catch(() => false);
+
         o.setHeader('Content-Type', 'text/html');
         o.writeHead(200);
         fs.createReadStream(index).pipe(o);
-      } else {
-        o.writeHead(404);
-        o.end();
+        return;
+      }
+
+      const fileWithHtml = path.resolve(process.cwd(), target + '.html');
+      const htmlFileExists = await fs.promises.access(fileWithHtml)
+        .then(() => fs.promises.stat(fileWithHtml).then(s => !s.isDirectory()))
+        .catch(() => false);
+
+      if (htmlFileExists) {
+        o.setHeader('Content-Type', 'text/html');
+        o.writeHead(200);
+        fs.createReadStream(fileWithHtml).pipe(o);
+        return;
       }
     }
-  }).listen($port, () => console.log('up on $port'));
-"
+
+    o.writeHead(404);
+    o.end();
+  }
+}).listen($port, () => console.log('up on $port'));
+EOF
+)"
 }
 unicode() {
   read -p 'enter char(s): ' char;
@@ -661,10 +693,14 @@ acrvpn() {
 }
 compose-logs() {
   local composeFile=${1:-apps.compose.yml}
-  tmux at -t 'compose-logs' 2>/dev/null || {
-    TMUX= tmux new-session -t 'compose-logs' \; \
-      send-keys "goto dsdc && docker-compose -f $composeFile logs -f --tail=200 | grep -v 'admin/health\|OPTIONS'" C-m \;
-  }
+  if [ -n "$TMUX" ]; then
+    goto dsdc && docker-compose -f $composeFile logs -f --tail=200 | grep -v 'admin/health\|OPTIONS'
+  else
+    tmux at -t 'compose-logs' 2>/dev/null || {
+      tmux new-session -t 'compose-logs' \; \
+        send-keys "goto dsdc && docker-compose -f $composeFile logs -f --tail=200 | grep -v 'admin/health\|OPTIONS'" C-m \;
+    }
+  fi
 }
 alias wh='watcherHelper'
 alias dsl="awk -F'=' 'NR == 2 { printf(gensub(/\"/, \"\", \"g\", \$2)); }' ~/work/notes |xclip && echo 'middle clickable'"
@@ -761,7 +797,7 @@ hours() {
   fi
   echo -ne "${timedata}\033[0;0m\n"
 
-  for projectsDir in dsd gen; do
+  for projectsDir in dsd gen bbox; do
     goto $projectsDir -q
     for project in $(find $PWD -maxdepth 4 -type d -name .git 2>/dev/null); do
       if [ -f $(dirname $project)/../.gitmodules ] && grep -q $(basename $(dirname $project)) $(dirname $project)/../.gitmodules; then
@@ -884,7 +920,7 @@ morning() {
   case $1 in
     dsd)
       teams
-      google -b outlook -b "jira sprint board" -b ghme -b jira-applications -b dsd hub
+      google -b outlook -b "bmw mail" -b "jira sprint board" -b ghme -b jira-applications -b dsd hub
       psub dsd
       pmux dsd
     ;;
@@ -938,7 +974,7 @@ pmux() {
         send-keys -t0 'docks -u config' C-m \; \
         select-pane -t0 \;
         # select-pane -t1 \; \
-        # send-keys -t1 'welcome-message' C-m \;
+        # send-keys -t1 "pew pew" C-m \;
     ;;
     *)
       local target=$(goto -c $1)
@@ -1107,47 +1143,60 @@ spindex() {
   }
 }
 
+
 extglob=$(shopt extglob |grep 'off')
 shopt -s extglob
 
 zgoto() {
-  root=/home/patrickmcgowan/source/acrontum/bmw/dsd
+  shopt -s extglob
+
+  local DSD_ROOT=${HOME}/source/acrontum/bmw/dsd
+  local BOX_ROOT=${HOME}/source/acrontum/blue-box
 
   local backend=
   local frontend=
   local swagger=
   case "$1" in
-    ?(dsd-)admin-panel-backend) path=admin-panel/admin-panel-backend ;;
-    ?(dsd-)admin-panel) path=admin-panel/admin-panel ;;
-    ?(dsd-)authentication) path=authentication/authentication ;;
-    ?(dsd-)backend-main) path=frontdesk/backend_main ;;
-    ?(dsd-)backend_main) path=frontdesk/backend_main ;;
-    ?(dsd-)frontend) path=frontdesk/frontend ;;
-    ?(dsd-)battery-service) path=battery-service/battery-service ;;
-    ?(dsd-)car-park-backend) path=car-park/car-park-backend ;;
-    ?(dsd-)check-control-messages) path=check-control-messages/check-control-messages ;;
-    ?(dsd-)condition-based-service) path=condition-based-service/condition-based-service ;;
-    ?(dsd-)fuel-system) path=fuel-system/fuel-system ;;
-    ?(dsd-)historical-data) path=historical-data/historical-data ;;
-    ?(dsd-)known-issue-service) path=known-issue-service/known-issue-service ;;
-    ?(dsd-)market-tool-service) path=market-tool-service/market-tool-service ;;
-    ?(dsd-)recommendations-service) path=recommendations-service/recommendations-service ;;
-    ?(dsd-)reporting) path=reporting/reporting ;;
-    ?(dsd-)remote-services) path=remote-services/remote-services ;;
-    ?(dsd-)scheduler-service) path=scheduler-service/scheduler-service ;;
-    ?(dsd-)service-partner) path=service-partner/service-partner ;;
-    ?(dsd-)sim-card) path=sim_card/sim_card ;;
-    ?(dsd-)sim_card) path=sim_card/sim_card ;;
-    ?(dsd-)technical-actions) path=technical-actions/technical-actions ;;
-    ?(dsd-)technical-admin-panel-backend) path=technical-admin-panel/technical-admin-panel-backend ;;
-    ?(dsd-)technical-admin-panel) path=technical-admin-panel/technical-admin-panel ;;
-    ?(dsd-)tires-machine-consumer) path=tires-machine-consumer/tires-machine-consumer ;;
-    ?(dsd-)tires-machine-receiver) path=tires-machine-receiver/tires-machine-receiver ;;
-    ?(dsd-)tires-service) path=tires-service/tires-service ;;
-    ?(dsd-)user-management) path=user-management/user-management ;;
-    dsd) path=/ ;;
-    dsdc) path=config ;;
-    pg) path=config/postgres/backups ;;
+    ?(dsd-)admin-panel-backend) path=${DSD_ROOT}/admin-panel/admin-panel-backend ;;
+    ?(dsd-)admin-panel) path=${DSD_ROOT}/admin-panel/admin-panel ;;
+    ?(dsd-)authentication) path=${DSD_ROOT}/authentication/authentication ;;
+    ?(dsd-)backend-main) path=${DSD_ROOT}/frontdesk/backend_main ;;
+    ?(dsd-)backend_main) path=${DSD_ROOT}/frontdesk/backend_main ;;
+    ?(dsd-)frontend) path=${DSD_ROOT}/frontdesk/frontend ;;
+    ?(dsd-)battery-service) path=${DSD_ROOT}/battery-service/battery-service ;;
+    ?(dsd-)car-park-backend) path=${DSD_ROOT}/car-park/car-park-backend ;;
+    ?(dsd-)check-control-messages) path=${DSD_ROOT}/check-control-messages/check-control-messages ;;
+    ?(dsd-)condition-based-service) path=${DSD_ROOT}/condition-based-service/condition-based-service ;;
+    ?(dsd-)fuel-system) path=${DSD_ROOT}/fuel-system/fuel-system ;;
+    ?(dsd-)historical-data) path=${DSD_ROOT}/historical-data/historical-data ;;
+    ?(dsd-)known-issue-service) path=${DSD_ROOT}/known-issue-service/known-issue-service ;;
+    ?(dsd-)market-tool-service) path=${DSD_ROOT}/market-tool-service/market-tool-service ;;
+    ?(dsd-)monitoring-service) path=${DSD_ROOT}/monitoring-service/monitoring-service ;;
+    ?(dsd-)recommendations-service) path=${DSD_ROOT}/recommendations-service/recommendations-service ;;
+    ?(dsd-)reporting) path=${DSD_ROOT}/reporting/reporting ;;
+    ?(dsd-)remote-services) path=${DSD_ROOT}/remote-services/remote-services ;;
+    ?(dsd-)scheduler-service) path=${DSD_ROOT}/scheduler-service/scheduler-service ;;
+    ?(dsd-)service-partner) path=${DSD_ROOT}/service-partner/service-partner ;;
+    ?(dsd-)sim-card) path=${DSD_ROOT}/sim_card/sim_card ;;
+    ?(dsd-)sim_card) path=${DSD_ROOT}/sim_card/sim_card ;;
+    ?(dsd-)technical-actions) path=${DSD_ROOT}/technical-actions/technical-actions ;;
+    ?(dsd-)technical-admin-panel-backend) path=${DSD_ROOT}/technical-admin-panel/technical-admin-panel-backend ;;
+    ?(dsd-)technical-admin-panel) path=${DSD_ROOT}/technical-admin-panel/technical-admin-panel ;;
+    ?(dsd-)tires-machine-consumer) path=${DSD_ROOT}/tires-machine-consumer/tires-machine-consumer ;;
+    ?(dsd-)tires-machine-receiver) path=${DSD_ROOT}/tires-machine-receiver/tires-machine-receiver ;;
+    ?(dsd-)tires-service) path=${DSD_ROOT}/tires-service/tires-service ;;
+    ?(dsd-)user-management) path=${DSD_ROOT}/user-management/user-management ;;
+    dsd) path=${DSD_ROOT}/ ;;
+    dsdc) path=${DSD_ROOT}/config ;;
+    pg) path=${DSD_ROOT}/config/postgres/backups ;;
+
+    bbox) path=${BOX_ROOT}/ ;;
+    auth) path=${BOX_ROOT}/ms-auth ;;
+    bbb | blue-box-backend) path=${BOX_ROOT}/blue-box-backend ;;
+    bbf | blue-box-frontend) path=${BOX_ROOT}/blue-box-frontend ;;
+    tdw | tire-data-worker) path=${BOX_ROOT}/tire-data-worker ;;
+    tmx | tire-machine-consumer) path=${BOX_ROOT}/tire-machine-consumer ;;
+    msa | ms-auth) path=${BOX_ROOT}/ms-auth ;;
     *) echo "path '$1' not found" && return 1 ;;
   esac
 
@@ -1155,20 +1204,20 @@ zgoto() {
     b | be | '');;
     f | fe)
       case $path in
-        admin-panel/admin-panel-backend | technical-admin-panel/technical-admin-panel-backend)
+        ${DSD_ROOT}/admin-panel/admin-panel-backend | ${DSD_ROOT}/technical-admin-panel/technical-admin-panel-backend)
           path=${path/-backend/}
         ;;
-        frontdesk/backend_main)
+        ${DSD_ROOT}/frontdesk/backend_main)
           path=${path/backend_main/frontend}
         ;;
         *) echo FE not found && return 1 ;;
       esac
     ;;
     s | sw)
-      if [ -d "$root/${path}-swagger" ]; then
-        path="${path}-swagger"
-      elif [ -d "$root/${path}_swagger" ]; then
-        path="${path}_swagger"
+      if [ -d $path/../*swagger ]; then
+        path=$(realpath $path/../*swagger)
+      elif [ -d $path/../*_d ]; then
+        path=$(realpath $path/../*_d)
       else
         echo swagger not found && return 1
       fi
@@ -1176,10 +1225,11 @@ zgoto() {
     *) echo '[b, be, f, fe, s, sw]' && return 1 ;;
   esac
 
-  cd $root/$path
-}
+  cd $path
 
+}
 [ -n "$extglob" ] && shopt -u extglob
+
 
 zs() {
   local usage="zs [b | f | s]
@@ -1286,6 +1336,10 @@ b64() {
   esac
 
   for i in "$@"; do
-    echo -en "$i\n$(echo -n "$i" |base64 $decode)\n"
+    echo -en "$i\n$(echo -n "$i" |base64 -w0 $decode)\n"
   done
+}
+
+gen() {
+  npm run generate:nodegen --yes "$@"
 }
