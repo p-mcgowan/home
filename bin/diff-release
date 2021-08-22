@@ -1,0 +1,80 @@
+#!/bin/bash
+
+
+SOURCE_BRANCH=origin/develop
+TARGET_BRANCH=origin/stage
+TARGET_ENV=stage
+MERGES='--no-merges'
+
+read -r -d '' USAGE <<-USAGE
+$(basename $0) [options]
+options:
+  stage                  Report difference between dev and stage (default)
+  prod                   Report difference between stage and prod
+  -t, --tags             Report difference between last 2 tags
+  -m, --merges           Only print merge commits
+  -M, --include-merges   Include merges in the output
+  -v, --verbose          Log verbosely
+  -a, --all              Run for all BE / FE projects
+  -h, --help             Show this menu
+USAGE
+
+log() {
+  echo 1>&2 "$*"
+}
+
+# git log --no-merges --decorate --oneline --date=format:"%Y-%m-%d %H:%M" --pretty=format:"%C(auto)%h %C(dim)%ad | %C(auto)[%an] %s" $before...$after
+# zdoall -b -e -r S diff-release prod |tee /tmp/changelog.txt
+
+while [ -n "$1" ]; do
+  case "$1" in
+    v | -v | --verbose) VEBROSE=true ;;
+    stage)
+      SOURCE_BRANCH=origin/develop
+      TARGET_BRANCH=origin/stage
+      TARGET_ENV=stage
+    ;;
+    prod | production)
+      SOURCE_BRANCH=origin/stage
+      TARGET_BRANCH=origin/master
+      TARGET_ENV=prod
+    ;;
+    m | -m | --merges | merges) MERGES='--merges' ;;
+    M | -M | --include-merges | include-merges) MERGES='' ;;
+    t | -t | --tags | tags) TARGET_ENV=tags ;;
+    a | -a | --all) DO_FOR_ALL=true ;;
+    h | -h | --help | help) echo "$USAGE" && exit 0 ;;
+  esac
+  shift
+done
+
+log_cmd="git log $MERGES --decorate --oneline --date=format:\"%Y-%m-%d %H:%M\" --pretty=format:\"%C(auto)%h %C(dim)%ad | %C(auto)[%an] %s\" $SOURCE_BRANCH...$TARGET_BRANCH"
+
+if [ -n "$VEBROSE" ]; then
+  log "diffing for $TARGET_ENV release"
+  log "$log_cmd"
+fi
+
+if [ -n "$DO_FOR_ALL" ]; then
+  if [ "$TARGET_ENV" != "tags" ]; then
+    zdoall -b -e -r S "$log_cmd" "$@"
+  else
+    for project in $(zdoall -r S 'echo'); do
+      cd $project
+      res=$(git tag --list --sort=creatordate --format="%(refname:short)" | tail -n2)
+      read SOURCE_BRANCH TARGET_BRANCH <<<$(echo $res)
+      res=$(git log $MERGES --decorate --oneline --date=format:"%Y-%m-%d %H:%M" --pretty=format:"%C(auto)%h %C(dim)%ad | %C(auto)[%an] %s" $SOURCE_BRANCH...$TARGET_BRANCH)
+      if [ -n "$res" ]; then
+        echo -e "\n\n$project"
+        echo "$SOURCE_BRANCH -> $TARGET_BRANCH"
+        echo "$res"
+      fi
+    done
+  fi
+  exit 0
+fi
+
+res=$(eval $log_cmd)
+if [ -n "$res" ]; then
+  echo "$res"
+fi
