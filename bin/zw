@@ -4,6 +4,13 @@ if ! [ -f package.json ]; then
   cd $(git rev-parse --show-toplevel)
 fi
 
+if ! [ -f package.json ]; then
+  SERVER_DIR=$(find . -maxdepth 3 -name server.ts)
+  if [ -n "$SERVER_DIR" ]; then
+    cd $(dirname $(realpath $SERVER_DIR))
+  fi
+fi
+
 # copy un-compiled files into dist
 copyAfterTsc() {
   log "Copying un-compiled files to dist"
@@ -46,6 +53,9 @@ compileAndRun() {
     echo "running with compiler: $compiler"
   fi
 
+  if grep -q '"prebuild"' package.json; then
+    npm run prebuild
+  fi
   npx tsc-watch \
     --preserveWatchOutput \
     --compiler "$compiler" \
