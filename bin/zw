@@ -31,6 +31,7 @@ copyAfterTsc() {
 }
 
 export PORT=${PORT:-6666}
+export TYPEORM_LOGGING=${TYPEORM_LOGGING:-true}
 # export NODE_ENV=${NODE_ENV:-production}
 
 # helper to watch and run command
