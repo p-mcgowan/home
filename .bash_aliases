@@ -43,6 +43,7 @@ goto() {
     [if]=~/source/ifarsh
     [ib]=~/source/isarbits
     [dsd]=~/source/acrontum/bmw/dsd
+    [aos]=~/source/acrontum/bmw/aos2
     [dsdc]=~/source/acrontum/bmw/dsd/config
     [gen]=~/source/acrontum/github
     [bbox]=~/source/acrontum/blue-box
@@ -290,7 +291,8 @@ alias restart-nginx='sudo sh -c "nginx -t && service nginx restart"'
 ## Git
 
 alias gitroot='cd $(git rev-parse --show-toplevel)'
-alias gitdefault="git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print($2); }'"
+alias gitdefault="git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print(\$2); }'"
+alias gitsetdefault="git remote set-head origin --auto || git remote set-head origin \$(git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print(\$2); }')"
 alias tags='git fetch --tags && git tag --list --sort=creatordate --format="%(refname:short) [%(creatordate:iso)]"'
 gdiff() {
   args=
@@ -703,8 +705,17 @@ compose-logs() {
   fi
 }
 alias wh='watcherHelper'
-alias dsl="awk -F'=' 'NR == 2 { printf(gensub(/\"/, \"\", \"g\", \$2)); }' ~/work/notes |xclip && echo 'middle clickable'"
-alias qnumber="awk -F'=' '\$1 ~ /qnumber/ { printf(\$2); }' ~/work/notes | tee /dev/tty |xclip && echo -e \"\nmiddle clickable\""
+
+# alias dsl="awk -F'=' 'NR == 2 { printf(gensub(/\"/, \"\", \"g\", \$2)); }' ~/work/notes |xclip && echo 'middle clickable'"
+# alias qnumber="awk -F'=' '\$1 ~ /qnumber/ { printf(\$2); }' ~/work/notes | tee /dev/tty |xclip && echo -e \"\nmiddle clickable\""
+
+dsl(){
+  awk -F'=' '$1 ~ /qnumber/ { printf($2); }' ~/work/notes | tee /dev/tty |xclip
+  awk -F'=' '$1 ~ /^pass/ { printf(gensub(/"/, "", "g", $2)); }' ~/work/notes |xclip -sel clip
+  echo -e "\nmiddle clickable"
+}
+alias qnumber="echo is dsl now && dsl"
+
 kcc() {
   [ ! -t 1 ]
   isTTY=$?
@@ -918,9 +929,15 @@ client() {
 }
 morning() {
   case $1 in
+    aos)
+      teams
+      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b jira-applications -b dsd hub
+      psub dsd
+      pmux aos
+    ;;
     dsd)
       teams
-      google -b outlook -b "bmw mail" -b "jira sprint board" -b ghme -b jira-applications -b dsd hub
+      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b jira-applications -b dsd hub
       psub dsd
       pmux dsd
     ;;
@@ -972,6 +989,15 @@ pmux() {
       tmux new-session \; \
         split-window -v \; \
         send-keys -t0 'docks -u config' C-m \; \
+        select-pane -t0 \;
+        # select-pane -t1 \; \
+        # send-keys -t1 "pew pew" C-m \;
+    ;;
+    aos)
+      goto aos;
+      tmux new-session \; \
+        split-window -v \; \
+        send-keys -t0 'cd docker' C-m \; \
         select-pane -t0 \;
         # select-pane -t1 \; \
         # send-keys -t1 "pew pew" C-m \;
@@ -1152,6 +1178,7 @@ zgoto() {
 
   local DSD_ROOT=${HOME}/source/acrontum/bmw/dsd
   local BOX_ROOT=${HOME}/source/acrontum/blue-box
+  local AOS_ROOT=${HOME}/source/acrontum/bmw/aos2
 
   local backend=
   local frontend=
@@ -1197,6 +1224,10 @@ zgoto() {
     tdw | tire-data-worker) path=${BOX_ROOT}/tire-data-worker ;;
     tmx | tire-machine-consumer) path=${BOX_ROOT}/tire-machine-consumer ;;
     msa | ms-auth) path=${BOX_ROOT}/ms-auth ;;
+    aos | aos2) path=${AOS_ROOT}/ ;;
+    aosb) path=${AOS_ROOT}/aos2-main-backend ;;
+    aosf) path=${AOS_ROOT}/aos2-frontend ;;
+    aoss) path=${AOS_ROOT}/spec/aos2-main-backend-spec ;;
     *) echo "path '$1' not found" && return 1 ;;
   esac
 
