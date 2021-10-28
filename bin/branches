@@ -17,9 +17,9 @@ doCompare() {
 
   if ! [[ $branch =~ remotes/origin/HEAD ]]; then
     local shortName="${branch/remotes\/origin\//}"
-    read ahead behind < <(git rev-list --left-right --count $branch...$OPT_BRANCH)
+    read ahead behind < <(git rev-list --left-right --count $branch...$OPT_BRANCH 2>/dev/null)
     local msg="even"
-    if [ "$ahead" -ne 0 ] || [ "$behind" -ne 0 ]; then
+    if [[ -n "$ahead" && "$ahead" -ne 0 ]] || [[ -n "$behind" && "$behind" -ne 0 ]]; then
       if [ "$TERM" != dumb ]; then
         msg=$'\e[0;91m-'"$behind"$'\e[0m/\e[92m'"+$ahead"$'\e[0m'
       else
@@ -43,7 +43,7 @@ doCompare() {
       return
     fi
 
-    if [ "$shortName" == "$thisBranch" ]; then
+    if [ "$shortName" == "$thisBranch" ] || [[ "$thisBranch" == "HEAD" && "$shortName" =~ no\ branch ]]; then
       printf "> "
     else
       printf "  "
@@ -163,8 +163,9 @@ if [ -z "$OPT_ONLY_BRANCH" ]; then
     printf "\e[1;36mOnly Local  \e[0;33mOnly Remote\e[0m\n\n"
   fi
   while read branch; do
-    doCompare $branch
+    doCompare "$branch"
   done < <(git branch -a --sort=-committerdate |sed 's/^[\*\ ]\ //g')
+  # done < <(git branch -a --sort=-committerdate |sed 's/^[\*\ ]\ //g' |grep -v 'no branch\|detached')
 else
   doCompare $OPT_BRANCH
 fi
