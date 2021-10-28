@@ -1,0 +1,18 @@
+#!/bin/bash
+
+compose_apps="$(awk -F '[ :]+' '
+  /^services/ {
+    flag = 1;
+    next;
+  }
+  /^[a-z]/ {
+    flag = 0;
+  }
+  /^  [a-z\-_]+:/ {
+    if (flag) {
+      printf("%s ", $2);
+    }
+  }' /home/patrickmcgowan/source/acrontum/bmw/dsd/config/apps.compose.yml)"
+
+complete -W "$compose_apps" klog kubesh runapps.sh zcheck-services zapp
+complete -W "$compose_apps frontend aos aosb aosf aoss af ab as ad"  zgoto
