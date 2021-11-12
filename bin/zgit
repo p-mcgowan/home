@@ -36,7 +36,6 @@ if [[ "$url" =~ github.com ]]; then
     *) echo unknown page $page; exit 1;;
   esac
 elif [[ "$url" =~ repos.acrontum.net ]] || [[ "$url" =~ gitlab.test ]] || [[ "$url" =~ gitlab.com ]]; then
-# else
   case $1 in
     ?(-)B | ?(--)branches) page='-/branches/all';;
     ?(-)b | ?(--)branch) page="-/tree/$thisBranch";;
@@ -45,6 +44,23 @@ elif [[ "$url" =~ repos.acrontum.net ]] || [[ "$url" =~ gitlab.test ]] || [[ "$u
     ?(-)c | ?(--)commit?(s)) page="commits/$thisBranch";;
     ?(-)p | ?(--)pipe?(line)?(s)) page='pipelines';;
     ?(-)f | ?(--)files) page="-/find_file/${thisBranch}";;
+    ?(-)v | ?(--)version) getVersion "$url/-/raw/develop/package.json";;
+    ?(-)h | ?(--)help) echo "$usage" && exit 0;;
+    '') ;;
+    *) echo unknown page $page; exit 1;;
+  esac
+elif [[ "$url" =~ git.bmwgroup.net:7999 ]]; then
+  upstreamMain=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+  url=${url/git.bmwgroup.net:7999*/atc.bmwgroup.net/bitbucket/projects/AOSRE/repos/aos2}
+  page=browse
+  case $1 in
+    ?(-)B | ?(--)branches) page='branches';;
+    ?(-)b | ?(--)branch) page="browse?at=${thisBranch}";;
+    ?(-)m | ?(--)merge?(s)) page='pull-requests';;
+    ?(-)M | ?(--)merge-request) page="pull-requests?create&targetBranch=$upstreamMain&sourceBranch=$thisBranch";;
+    ?(-)c | ?(--)commit?(s)) page="commits?until=$thisBranch";;
+    ?(-)p | ?(--)pipe?(line)?(s)) page='builds';;
+    ?(-)f | ?(--)files) page="browse?at=${thisBranch}";;
     ?(-)v | ?(--)version) getVersion "$url/-/raw/develop/package.json";;
     ?(-)h | ?(--)help) echo "$usage" && exit 0;;
     '') ;;
