@@ -601,7 +601,6 @@ const conType = s => ({
   '.bmp': 'image/x-ms-bmp' }[path.extname(s)] || 'application/octet-stream');
 
 http.createServer(async (i, o, n) => {
-  console.log(i.url);
   o.on('finish', () => {
     let ip = i.headers['x-forwarded-for'] || i.connection.remoteAddress;
     console.log(\`\${ip} \${i.method} \${i.url} => \${o.statusCode}\`);
