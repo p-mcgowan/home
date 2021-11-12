@@ -48,6 +48,7 @@ goto() {
     [gen]=~/source/acrontum/github
     [bbox]=~/source/acrontum/blue-box
     [hc]=~/source/hc
+    [aos]=~/source/acrontum/bmw/aos2
   )
 
   if [ -z "$1" ]; then
@@ -291,8 +292,9 @@ alias restart-nginx='sudo sh -c "nginx -t && service nginx restart"'
 ## Git
 
 alias gitroot='cd $(git rev-parse --show-toplevel)'
-alias gitdefault="git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print(\$2); }'"
-alias gitsetdefault="git remote set-head origin --auto || git remote set-head origin \$(git remote show origin |grep 'HEAD branch' |awk -F': ' '{ print(\$2); }')"
+
+alias gitdefault="git remote show origin 2>/dev/null |awk -F': ' '\$1 ~ /HEAD/ {print(\$2);}'"
+alias gitsetdefault="git remote set-head origin --auto || git remote set-head origin \$(git remote show origin 2>/dev/null |awk -F': ' '\$1 ~ /HEAD/ {print(\$2);}')"
 alias tags='git fetch --tags && git tag --list --sort=creatordate --format="%(refname:short) [%(creatordate:iso)]"'
 gdiff() {
   args=
@@ -560,7 +562,7 @@ asciitree() { tree "$*" | sed 's/├/\+/g; s/─/-/g; s/└/\\/g'; }
 alias bt='bf gnome-terminal'
 # Resize term
 ts() {
-  resize -s ${1:-25} ${2:-80} &>/dev/null
+  resize -s ${1:-25} ${2:-80} >/dev/null
 }
 # Random crap
 imout() {
@@ -599,6 +601,7 @@ const conType = s => ({
   '.bmp': 'image/x-ms-bmp' }[path.extname(s)] || 'application/octet-stream');
 
 http.createServer(async (i, o, n) => {
+  console.log(i.url);
   o.on('finish', () => {
     let ip = i.headers['x-forwarded-for'] || i.connection.remoteAddress;
     console.log(\`\${ip} \${i.method} \${i.url} => \${o.statusCode}\`);
@@ -808,7 +811,7 @@ hours() {
   fi
   echo -ne "${timedata}\033[0;0m\n"
 
-  for projectsDir in dsd gen bbox; do
+  for projectsDir in dsd gen bbox aos; do
     goto $projectsDir -q
     for project in $(find $PWD -maxdepth 4 -type d -name .git 2>/dev/null); do
       if [ -f $(dirname $project)/../.gitmodules ] && grep -q $(basename $(dirname $project)) $(dirname $project)/../.gitmodules; then
@@ -930,14 +933,14 @@ client() {
 morning() {
   case $1 in
     aos)
-      teams
-      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b jira-applications -b dsd hub
+      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b jira-applications -b "AOS hub" -b "aos Jira" -b personio
       psub dsd
+      teams
       pmux aos
     ;;
     dsd)
       teams
-      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b jira-applications -b dsd hub
+      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b jira-applications -b "dsd hub"
       psub dsd
       pmux dsd
     ;;
@@ -997,7 +1000,7 @@ pmux() {
       goto aos;
       tmux new-session \; \
         split-window -v \; \
-        send-keys -t0 'cd docker' C-m \; \
+        send-keys -t0 'cd docker && docker-compose up -d --build' C-m \; \
         select-pane -t0 \;
         # select-pane -t1 \; \
         # send-keys -t1 "pew pew" C-m \;
@@ -1225,9 +1228,10 @@ zgoto() {
     tmx | tire-machine-consumer) path=${BOX_ROOT}/tire-machine-consumer ;;
     msa | ms-auth) path=${BOX_ROOT}/ms-auth ;;
     aos | aos2) path=${AOS_ROOT}/ ;;
-    aosb) path=${AOS_ROOT}/aos2-main-backend ;;
-    aosf) path=${AOS_ROOT}/aos2-frontend ;;
-    aoss) path=${AOS_ROOT}/spec/aos2-main-backend-spec ;;
+    aosb | ab) path=${AOS_ROOT}/aos2-main-backend ;;
+    aosf | af) path=${AOS_ROOT}/aos2-frontend ;;
+    aosd | ad) path=${AOS_ROOT}/docker ;;
+    aoss | as) path=${AOS_ROOT}/spec/aos2-main-backend-spec ;;
     *) echo "path '$1' not found" && return 1 ;;
   esac
 
