@@ -56,5 +56,5 @@ docker run \
   $mounts \
   --user="$(id -u):$(id -g)" \
   --workdir=/tmp \
-  -it --rm --name java7 openjdk:7 \
+  --rm --name java11 openjdk:11 \
   bash -c "$cmd"
