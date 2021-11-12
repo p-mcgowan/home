@@ -60,11 +60,11 @@ doCompare() {
   fi
 }
 
-OPT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+OPT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/@@')
 if [ -z "$OPT_BRANCH" ]; then
   echo trying to set main branch
   git remote set-head origin --auto
-  OPT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+  OPT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/@@')
 fi
 OPT_BRANCH=${OPT_BRANCH:-develop}
 readingLocal=true
@@ -103,7 +103,7 @@ declare -A onlyRemote
 declare -A localAndRemote
 longestName=0
 
-matches=($(git branch -a |sed 's/\*\?\ \+//g' | grep "\b${OPT_BRANCH}\b"))
+matches=($(git branch -a |sed 's/\*\?\ \+//g' | grep -v -- '->' |grep "\b${OPT_BRANCH}\b"))
 
 if [ ${#matches[@]} == 0 ]; then
   echo "Did not find branch: $OPT_BRANCH"
