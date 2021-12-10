@@ -932,7 +932,7 @@ client() {
 morning() {
   case $1 in
     aos)
-      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b jira-applications -b "AOS hub" -b "aos Jira" -b personio
+      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b "AOS hub" -b "aos Jira" -b personio -b "aos bitbucket"
       psub dsd
       teams
       pmux aos
@@ -999,10 +999,11 @@ pmux() {
       goto aos;
       tmux new-session \; \
         split-window -v \; \
-        send-keys -t0 'cd docker && docker-compose up -d --build' C-m \; \
-        select-pane -t0 \;
-        # select-pane -t1 \; \
-        # send-keys -t1 "pew pew" C-m \;
+        split-window -h \; \
+        send-keys -t0 'cd docker' C-m 'docker-compose up -d --build --force-recreate' C-m 'docker-compose logs -f' C-m \; \
+        send-keys -t1 'zgoto af' C-m 'zfrontend' C-m \; \
+        send-keys -t2 'gst' C-m \; \
+        select-pane -t2 \;
     ;;
     *)
       local target=$(goto -c $1)
