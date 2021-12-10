@@ -94,6 +94,7 @@ goto() {
 
 ## Programs
 
+alias tmux='TERM=xterm-256color tmux'
 calc() { echo "$@" |bc -l ; }
 alias term='gnome-terminal'
 alias conky='conky -c ~/.conkyrc &>/dev/null'
