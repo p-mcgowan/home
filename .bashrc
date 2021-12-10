@@ -128,7 +128,6 @@ if [ -f ~/.bash_hosts ]; then
   source ~/.bash_hosts
 fi
 
-export VIMRUNTIME=~/.vim/
 export GIT_EDITOR=vim
 export EDITOR=vim
 #export ANDROID_HOME=~/programs/Android

@@ -1,6 +1,6 @@
 "set visualbell
 set nocompatible
-set runtimepath=$VIMRUNTIME
+set runtimepath^=$VIMRUNTIME,~/.vim
 set nocp
 set ls=2
 set tabstop=2
@@ -29,7 +29,7 @@ set fileencoding=utf-8
 set fileformat=unix
 " source them aliases
 set shell=bash\ --login
-colorscheme ron
+colorscheme monokai
 filetype on
 filetype plugin on
 filetype plugin indent on
@@ -41,12 +41,6 @@ highlight Search ctermbg=none ctermfg=none cterm=underline,bold
 if has('mouse')
   set mouse=a
 endif
-
-" runtime! autoload/pathogen.vim
-" if exists("*pathogen#infect")
-"     call pathogen#infect()
-" endif
-silent! call pathogen#infect()
 
 au BufNewFile,BufRead *.ts set filetype=typescript
 
@@ -68,10 +62,19 @@ autocmd BufWritePre * call StripTrailingWhitespace()
 autocmd Filetype java set makeprg=javac\ %
 
 set omnifunc=syntaxcomplete#Complete
-set completefunc=javacomplete#Complete
+set completefunc=syntaxcomplete#Complete
 set completeopt=longest,menuone
 " Make enter finish the completion popup menu
 inoremap <expr> <CR> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
+inoremap <C-@> <C-x><C-o>
+" Autocomplete on keydown
+"function! OpenCompletion()
+"  if !pumvisible() && ((v:char >= 'a' && v:char <= 'z') || (v:char >= 'A' && v:char <= 'Z'))
+"    call feedkeys("\<C-x>\<C-o>", "n")
+"  endif
+"endfunction
+"autocmd InsertCharPre * call OpenCompletion()
+
 " Tag lists
 nnoremap <F3> :TlistToggle<CR>
 let Tlist_Use_Right_Window = 1
@@ -106,11 +109,11 @@ let g:ctrlp_custom_ignore = 'node_modules\|.git'
 :endfunction
 :command! SudoWrite call s:SudoWrite()
 
-"let g:netrw_banner = 0
-"let g:netrw_liststyle = 3
-"let g:netrw_browse_split = 4
-"let g:netrw_altv = 1
-"let g:netrw_winsize = 25
+let g:netrw_banner = 0
+let g:netrw_liststyle = 3
+"let g:netrw_browse_split = 2
+let g:netrw_altv = 1
+let g:netrw_winsize = 25
 "augroup ProjectDrawer
 "  autocmd!
 "  autocmd VimEnter * :Vexplore
