@@ -1,12 +1,23 @@
 #!/bin/bash
 
+set -x
 prefs="/home/patrickmcgowan/.config/sublime-text/Packages/User/Preferences.sublime-settings"
+theme="/home/patrickmcgowan/.config/sublime-text/Packages/User/Adaptive.sublime-theme"
 
 fs=9
 
 if [ -n "$1" ]; then
-  sed -i "s/\"font_size\": [0-9]\+,/\"font_size\": $1,/g" $prefs
-else
-  grep -q '"font_size": '$fs $prefs && fs=18;
-  sed -i "s/\"font_size\": [0-9]\+,/\"font_size\": $fs,/g" $prefs
+  fs=$1
+elif grep -q '"font_size": '$fs $prefs; then
+  fs=18
 fi
+
+sed -i "s/\"font_size\": [0-9]\+,/\"font_size\": $fs,/g" $prefs
+
+themeFontSize=$(printf %.0f $(echo "6 + .67 * $fs" | bc -l))
+themePadding=$(printf %.0f $(echo "-2 + .44 * $fs" | bc -l))
+
+sed -i \
+  -e "s/\"font.size\": [0-9]\+/\"font.size\": $themeFontSize/g" \
+  -e "s/\"row_padding\": \[\([0-9]\+\), [0-9]\+\]/\"row_padding\": \[\1, $themePadding]/g" \
+  $theme
