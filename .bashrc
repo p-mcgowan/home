@@ -133,7 +133,6 @@ export EDITOR=vim
 #export ANDROID_HOME=~/programs/Android
 #export PATH=$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools
 
-nvm() { unset -f nvm; source ${NVM_DIR:-$HOME/.nvm}/nvm.sh; echo "loaded nvm"; nvm $*; export NVM_BIN=$NVM_BIN; export NVM_DIR=$NVM_DIR;  }
 # per machine rc - not committed
 if [ -f ~/.machinerc ]; then
   source ~/.machinerc
@@ -145,5 +144,4 @@ if [ -d ~/.completions ]; then
   done
 fi
 
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 export PATH=$PATH:$HOME/source/acrontum/bmw/dsd/config/scripts/
