@@ -17,6 +17,7 @@ doCompare() {
 
   if ! [[ $branch =~ remotes/origin/HEAD ]]; then
     local shortName="${branch/remotes\/origin\//}"
+
     read ahead behind < <(git rev-list --left-right --count $branch...$OPT_BRANCH 2>/dev/null)
     local msg="even"
     if [[ -n "$ahead" && "$ahead" -ne 0 ]] || [[ -n "$behind" && "$behind" -ne 0 ]]; then
@@ -26,9 +27,9 @@ doCompare() {
         msg="-$behind/+$ahead"
       fi
     fi
+
     local colour=
     local reset=
-
     if [ -n "${onlyLocal[$shortName]}" ]; then
       if [ "$TERM" != dumb ]; then
         colour=$'\e[1;36m'
@@ -48,7 +49,7 @@ doCompare() {
     else
       printf "  "
     fi
-    printf "$colour%-$((longestName + 2))s%s${reset}\n" "$branch" "$msg"
+    printf "$colour%-$((longestName + 2))s%s${reset}\n" "$shortName" "$msg"
 
     if [ -n "$OPT_VERBOSE" ] && [ "$msg" != "even" ]; then
       if [ $((behind + ahead)) -le 10 ]; then
@@ -113,28 +114,32 @@ else
 fi
 
 while read branch; do
-    allBranches["$branch"]="$branch"
+  allBranches["$branch"]="$branch"
+  shortName="${branch/remotes\/origin\//}"
+
   if [[ $branch =~ remotes/origin/HEAD ]]; then
     readingLocal=
+    continue
+  fi
+
+  if [[ $branch =~ remotes/ ]]; then
+    readingLocal=
+  fi
+
+  if [ ${#shortName} -gt $longestName ]; then
+    longestName=${#shortName}
+  fi
+
+  if [ "$readingLocal" == "true" ]; then
+    localBranches["$branch"]="$branch"
+    onlyLocal["$branch"]="$branch"
   else
-    if [[ $branch =~ remotes/ ]]; then
-      readingLocal=
-    fi
-    if [ ${#branch} -gt $longestName ]; then
-      longestName=${#branch}
-    fi
-    if [ "$readingLocal" == "true" ]; then
-      localBranches["$branch"]="$branch"
-      onlyLocal["$branch"]="$branch"
+    remoteBranches[$shortName]="$branch"
+    if [ -n "${onlyLocal[$shortName]}" ]; then
+      onlyLocal[$shortName]=
+      localAndRemote[$shortName]="$shortName"
     else
-      shortName="${branch/remotes\/origin\//}"
-      remoteBranches[$shortName]="$branch"
-      if [ -n "${onlyLocal[$shortName]}" ]; then
-        onlyLocal[$shortName]=
-        localAndRemote[$shortName]="$shortName"
-      else
-        onlyRemote[$shortName]="$branch"
-      fi
+      onlyRemote[$shortName]="$branch"
     fi
   fi
 done < <(git branch -a |sed 's/^[\*\ ]\ //g')
