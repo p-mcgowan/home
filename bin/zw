@@ -51,7 +51,7 @@ compileAndRun() {
   if [ -z "$compiler" ]; then
     echo "no compiler found... prolly wont work"
   else
-    echo "running with compiler: $compiler"
+    echo "running with compiler: $(realpath --relative-to=$PWD $compiler)"
   fi
 
   if grep -q '"prebuild"' package.json; then
