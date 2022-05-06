@@ -349,8 +349,17 @@ if $reauth; then
     # TODO: make email/password variable
     data='{"email":"'$username'","password":"'$password'"}'
   fi
-  $verbose && echo "curl -H \"content-type: application/json\" -d'$data' ${REAUTH_URL}"
-  result=$({ curl -vvv -H "Content-Type: application/json" -d"$data" ${REAUTH_URL}; } 2>$resultsFile)
+  if [ -z "$method" ]; then
+    method="POST"
+  fi
+  if [ "$method" == "GET" ]; then
+    data=''
+  else
+    data="-d \"$data\""
+  fi
+
+  $verbose && echo "curl -H \"content-type: application/json\" "$data" ${REAUTH_URL}"
+  result=$({ curl -vvv -H "Content-Type: application/json" "$data" ${REAUTH_URL}; } 2>$resultsFile)
   echo $result >>$resultsFile
 
   # Searches JSON response for "<DATA_TOKEN_STRING>" : "<dataTokenValue>""
