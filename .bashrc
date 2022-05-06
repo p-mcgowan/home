@@ -145,3 +145,4 @@ if [ -d ~/.completions ]; then
 fi
 
 export PATH=$PATH:$HOME/source/acrontum/bmw/dsd/config/scripts/
+export PATH=$PATH:$HOME/work/aos/
