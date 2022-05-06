@@ -1,0 +1,21 @@
+#!/bin/bash
+
+mkdir -p /tmp/mdp
+cd /tmp/mdp
+
+docker build --tag markdown-preview -f - . <<'EOF'
+FROM python
+
+WORKDIR /opt
+
+RUN pip install grip
+
+CMD ["grip"]
+EOF
+
+cd - &>/dev/null
+
+echo -e "\n\nhttp://localhost:6419\n\n"
+
+mkdir -p /tmp/grip-cache
+docker run -d --rm -v /tmp/grip-cache:/root/.grip/ -v $PWD:/opt --network host --name markdown-preview markdown-preview $@
