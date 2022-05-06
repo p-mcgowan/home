@@ -5,7 +5,7 @@ shopt -s extglob
 
 cd $(git rev-parse --show-toplevel)
 
-thisBranch=$(git rev-parse --abbrev-ref HEAD)
+thisBranch=${2:-$(git rev-parse --abbrev-ref HEAD)}
 url=$(git remote get-url --push origin |awk -F '@' '{ sub(/:/, "/");sub(/\.git/, ""); print($2) }')
 page=
 
@@ -24,11 +24,11 @@ page:
 
 if [[ "$url" =~ github.com ]]; then
   case $1 in
-    ?(-)B | ?(--)branches) page='branches';;
-    ?(-)b | ?(--)branch) page="tree/$thisBranch";;
+    ?(-)b | ?(--)branches) page='branches';;
+    ?(-)B | ?(--)branch) page="tree/$thisBranch";;
     ?(-)m | ?(--)merge?(s)) page='pulls';;
-    ?(-)c | ?(--)commit?(s)) page="commits/$thisBranch";;
     ?(-)M | ?(--)merge-request) page="pull/new/$thisBranch";;
+    ?(-)c | ?(--)commit?(s)) page="commits/$thisBranch";;
     ?(-)f | ?(--)files) page="find/${thisBranch}";;
     # p | pipe | pipeline | pipelines) page='/pipelines';;
     ?(-)h | ?(--)help) echo "$usage" && exit 0;;
@@ -37,8 +37,8 @@ if [[ "$url" =~ github.com ]]; then
   esac
 elif [[ "$url" =~ repos.acrontum.net ]] || [[ "$url" =~ gitlab.test ]] || [[ "$url" =~ gitlab.com ]]; then
   case $1 in
-    ?(-)B | ?(--)branches) page='-/branches/all';;
-    ?(-)b | ?(--)branch) page="-/tree/$thisBranch";;
+    ?(-)b | ?(--)branches) page='-/branches/all';;
+    ?(-)B | ?(--)branch) page="-/tree/$thisBranch";;
     ?(-)m | ?(--)merge?(s)) page='merge_requests';;
     ?(-)M | ?(--)merge-request) page="merge_requests/new?merge_request%5Bsource_branch%5D=$thisBranch";;
     ?(-)c | ?(--)commit?(s)) page="commits/$thisBranch";;
@@ -51,11 +51,12 @@ elif [[ "$url" =~ repos.acrontum.net ]] || [[ "$url" =~ gitlab.test ]] || [[ "$u
   esac
 elif [[ "$url" =~ git.bmwgroup.net:7999 ]]; then
   upstreamMain=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
-  url=${url/git.bmwgroup.net:7999*/atc.bmwgroup.net/bitbucket/projects/AOSRE/repos/aos2}
+  url=$(echo "$url" | sed 's|.*/|atc.bmwgroup.net/bitbucket/projects/AOSRE/repos/|g')
   page=browse
   case $1 in
-    ?(-)B | ?(--)branches) page='branches';;
-    ?(-)b | ?(--)branch) page="browse?at=${thisBranch}";;
+    ?(-)b | ?(--)branches) page='branches';;
+    ?(-)B | ?(--)branch) page="commits?until=refs%2Fheads%2F${thisBranch}";;
+    # ?(-)B | ?(--)branch) page="browse?at=${thisBranch}";;
     ?(-)m | ?(--)merge?(s)) page='pull-requests';;
     ?(-)M | ?(--)merge-request) page="pull-requests?create&targetBranch=$upstreamMain&sourceBranch=$thisBranch";;
     ?(-)c | ?(--)commit?(s)) page="commits?until=$thisBranch";;
