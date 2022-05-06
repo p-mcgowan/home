@@ -45,10 +45,10 @@ goto() {
     [dsd]=~/source/acrontum/bmw/dsd
     [aos]=~/source/acrontum/bmw/aos2
     [dsdc]=~/source/acrontum/bmw/dsd/config
-    [gen]=~/source/acrontum/github
+    [gen]=~/source/acrontum/open-source
     [bbox]=~/source/acrontum/blue-box
     [hc]=~/source/hc
-    [aos]=~/source/acrontum/bmw/aos2
+    [work]=~/work
   )
 
   if [ -z "$1" ]; then
@@ -296,7 +296,7 @@ alias gitroot='cd $(git rev-parse --show-toplevel)'
 
 alias gitdefault="git remote show origin 2>/dev/null |awk -F': ' '\$1 ~ /HEAD/ {print(\$2);}'"
 alias gitsetdefault="git remote set-head origin --auto || git remote set-head origin \$(git remote show origin 2>/dev/null |awk -F': ' '\$1 ~ /HEAD/ {print(\$2);}')"
-alias tags='git fetch --tags && git tag --list --sort=creatordate --format="%(refname:short) [%(creatordate:iso)]"'
+alias tags='git fetch --tags && git tag --list --sort=creatordate --format="%(refname:short) [%(creatordate:iso)] %(objectname)"'
 gdiff() {
   args=
   files=
@@ -359,8 +359,13 @@ gbranchprune() {
   #   git branch -d $branch;
   # done
 }
-alias gmerge='git merge'
+alias gmerge='git merge $(git remote)/$(git rev-parse --abbrev-ref HEAD)'
 # alias stash='echo "git stash --include-untracked"'
+showstash() {
+  local line=${1:-0}
+  ((line++))
+  git rev-list -g stash | git rev-list --stdin --max-parents=0 | awk -v "line=$line" 'NR == line { printf($0); }' | xargs git show -p
+}
 stash() {
   # stash staged, unstaged, untracked
   # --keep-index, --no-keep-index
@@ -515,8 +520,9 @@ new-repo() {
 ismerged() {
   branches -r |sed 's/\ /\n/g' |while read branch; do
     [[ $branch =~ stage|master|develop ]] && continue
+    branch=$(echo $branch |sed -e 's|remotes/origin/||g')
     echo -e "\n$branch"
-    glog -n --color=always | grep --color=never "$(echo $branch |sed -e 's|remotes/origin/||g')"
+    glog -n --color=always | grep --color=never "$branch"
   done
 }
 
@@ -554,7 +560,7 @@ alias streams='google -w patmcgowan.ca/apps/stream'
 alias vantime='date -d"9 hours ago" +"%y.%m.%d %H:%M"'
 alias own='sudo chown $(id -u):$(id -g)'
 crlfToLf() {
-  sed -i 's/^M$//' $*
+  sed -i 's/^M$//' "$@"
 }
 alias xlcsv='libreoffice --headless --convert-to csv'
 asciitree() { tree "$*" | sed 's/├/\+/g; s/─/-/g; s/└/\\/g'; }
@@ -712,22 +718,15 @@ alias wh='watcherHelper'
 # alias dsl="awk -F'=' 'NR == 2 { printf(gensub(/\"/, \"\", \"g\", \$2)); }' ~/work/notes |xclip && echo 'middle clickable'"
 # alias qnumber="awk -F'=' '\$1 ~ /qnumber/ { printf(\$2); }' ~/work/notes | tee /dev/tty |xclip && echo -e \"\nmiddle clickable\""
 
-dsl(){
-  awk -F'=' '$1 ~ /qnumber/ { printf($2); }' ~/work/notes | tee /dev/tty |xclip
-  awk -F'=' '$1 ~ /^pass/ { printf(gensub(/"/, "", "g", $2)); }' ~/work/notes |xclip -sel clip
-  echo -e "\nmiddle clickable"
-}
-alias qnumber="echo is dsl now && dsl"
-
 kcc() {
   [ ! -t 1 ]
   isTTY=$?
 
   [[ -z "$1" ]] && kubectl config get-contexts | awk -v isTTY=$isTTY -F '  +' '{
     if ($1 == "*" && isTTY) {
-      printf("\033[0;1m%s  %s\033[0;0m\n", $2, $3);
+      printf("\033[0;1m%s  %s  %s\033[0;0m\n", $2, $3, $NF);
     } else {
-       printf("%s  %s\n", $2, $3);
+       printf("%s  %s  %s\n", $2, $3, $NF);
     }
   }' |column -t || {
     if [[ "$1" == -p ]]; then
@@ -735,7 +734,10 @@ kcc() {
     elif [[ "$1" == -l ]]; then
        kubectl config get-contexts |awk 'NR > 1 { if ($1 == "*") { print($2); } else { print($1); } }'
     else
-      kubectl config use-context "$1"
+      if [ -n "$2" ]; then
+        local namespace="--namespace $2"
+      fi
+      kubectl config use-context "$1" $2
     fi
   }
 }
@@ -905,7 +907,11 @@ vtsc() {
     if [ -f './tsc-errors.log' ]; then
       files=$(cat './tsc-errors.log')
     else
-      files=$(npx tsc --noEmit)
+      compiler=tsc
+      if npm list -depth=0 ttypescript &>/dev/null; then
+        compiler=ttsc
+      fi
+      files=$(npx $compiler --noEmit)
     fi
   else
     files="$*"
@@ -933,7 +939,7 @@ client() {
 morning() {
   case $1 in
     aos)
-      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b "AOS hub" -b "aos Jira" -b personio -b "aos bitbucket"
+      google -b outlook -b "bmw mail" -b "aos Jira" -b ghme -b "AOS hub" -b "\[ACR_BBOX\] bbox jira" -b "aos bitbucket"
       psub dsd
       teams
       pmux aos
