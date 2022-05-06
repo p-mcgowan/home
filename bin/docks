@@ -426,6 +426,8 @@ if [ -n "$DESTROY" ]; then
     echo -e 'y\n' | docker volume prune
     echo -e 'y\n' | docker container prune
     echo -e 'y\n' | docker image prune -a
+    echo -e 'y\n' | docker network prune
+    echo -e 'y\n' | docker system prune -a
   else
     exit 0
   fi
