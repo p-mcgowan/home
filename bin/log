@@ -1,0 +1,116 @@
+#!/bin/bash
+
+logDir=~/tmp/ditl
+logfile=$logDir/$(date -I).log
+mkdir -p $(dirname $logfile)
+
+
+runscript() {
+  if [ ! -f "$logfile" ]; then
+    echo >&2 file not found "$logfile"
+    exit 1
+  fi
+  echo >/tmp/logscript.js "$(cat << NODE_SCRIPT
+const getMins = (a, b) => Math.ceil((b - a) / (60 * 1000));
+
+const fmtMins = (mins) => {
+  const hh = Math.floor(mins / 60).toString().padStart(1, '0');
+  const mm = (mins % 60).toString().padStart(2, '0');
+
+  return \`\${hh}:\${mm}\`;
+}
+
+const times = require('fs').readFileSync('$logfile', 'utf8').split('\n').reduce((last, line) => {
+  let data = last?.data || {};
+
+  if (!line) {
+    last.data[last.message] = (data[last.message] || 0) + getMins(last.date, new Date());
+    return { ...last, data };
+  }
+
+  let [date, ...message] = line.split(' ');
+  date = new Date(date.replace(/[\[\]]/g, ''));
+  message = message.join(' ');
+
+  if (last) {
+    data[last.message] = (data[last.message] || 0) + getMins(last.date, date);
+  }
+
+  return { date, message, data };
+}, null);
+
+Object.entries(times.data).forEach(([message, mins]) => {
+  console.log(\`\${fmtMins(mins)} | \${message}\`);
+});
+NODE_SCRIPT
+  )" && node /tmp/logscript.js
+}
+
+usage="\
+log and print tasks.
+if no options are detected, writes a task with timestamp to today's logfile.
+
+usage:
+log <options | task>
+
+options
+  -f, --file DATE  use logfile specified by DATE
+  -e, --edit       edit current log file (vim)
+  -E               edit current log file (sublime)
+  -r, --print-raw  cat current log file
+  -p, --print      group and print logs
+  -P, --previous   show last log
+  -h, --help       show this menu"
+
+getLogfile() {
+  if [ -z "$1" ]; then
+    echo >&2 "Expected argumate for --date"
+    exit 1
+  fi
+
+  if [ -f "$1" ]; then
+    echo $(realpath "$1")
+    return $?
+  fi
+
+  if [ -f ~/tmp/ditl/$1 ]; then
+    echo $(realpath ~/tmp/ditl/$1)
+    return $?
+  fi
+
+  if [ -f ~/tmp/ditl/$1.log ]; then
+    echo $(realpath ~/tmp/ditl/$1.log)
+    return $?
+  fi
+
+  echo >&2 "Logfile not found in $1, ~/tmp/ditl/$1, or ~/tmp/ditl/$1.log"
+  exit 1
+}
+
+if [ -z "$1" ]; then
+  echo "$usage"
+  exit 1
+fi
+
+while [ -n "$1" ]; do
+  case $1 in
+    -f | --file) shift ; logfile=$(getLogfile "$1") ;;
+    -e | --edit) vim $logfile ;;
+    -E) sub $logfile ;;
+    -E | --edit-vim) vim $logfile ;;
+    -r | --print-raw) cat $logfile ;;
+    -p | --print) runscript ;;
+    -P | --previous) logfile=$(getLogfile $(ls -1 $logDir |grep -B 1 $(date -I) |head -n1)) ;;
+    -h | --help | '') echo "$usage"; exit 0 ;;
+    --) shift; [[ -z "$*" ]] || echo "[$(date -Is)] $*" >> $logfile ;;
+    -*) echo >&2 -e "unknown option '$1'. To start a log with a '-', use 'log -- -<msg>'\n\n$usage"; exit 1 ;;
+    *) echo "[$(date -Is)] $*" >> $logfile && shift $# ;;
+  esac
+  shift
+done
+
+# if [ -z "$1" ]; then
+#   cat $logfile
+# else
+#   echo "[$(date -Is)] $*" >> $logfile
+# fi
