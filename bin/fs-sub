@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+#set -x
 prefs="/home/patrickmcgowan/.config/sublime-text/Packages/User/Preferences.sublime-settings"
 theme="/home/patrickmcgowan/.config/sublime-text/Packages/User/Adaptive.sublime-theme"
 
