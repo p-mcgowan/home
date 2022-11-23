@@ -2,7 +2,7 @@
 
 GID_VERSION=${GID_VERSION:-build}
 
-if [ ! -f $HOME/source/acrontum/github/generate-it/${GID_VERSION}/cli.js ]; then
-  cd $HOME/source/acrontum/github/generate-it/ && npm run ${GID_VERSION}
+if [ ! -f $HOME/source/acrontum/open-source/generate-it/${GID_VERSION}/cli.js ]; then
+  cd $HOME/source/acrontum/open-source/generate-it/ && npm run ${GID_VERSION}
 fi
-node $HOME/source/acrontum/github/generate-it/${GID_VERSION}/cli.js $*
+node $HOME/source/acrontum/open-source/generate-it/${GID_VERSION}/cli.js $*

@@ -4,7 +4,7 @@ shopt -s globstar
 
 usage="\
 Mocha helper
-usage: $(basename $0) [-f | -a] [...options]
+usage: $(basename $0) [options]
 options:
   -v, --verbose              Log all the things
   -t, --ts-node              Run with ts-node instead of dist
@@ -106,7 +106,7 @@ if [ -n "$TSNODE" ]; then
   fi
   npx mocha $MOCHA_REPORTER --opts --file src/shared/test/mocha-startup.ts ./test/mocha.opts $files
 else
-  buildfolder=$(grep '"outDir": "' tsconfig.json |awk -F'"' '{ print($4); }')
+  buildfolder=$(awk -F'"' '$2 == "outDir" { print($4); }' tsconfig.json)
   echo "using buildfolder:$buildfolder"
   if ! [ -d $buildfolder ]; then
     echo no $buildfolder - building

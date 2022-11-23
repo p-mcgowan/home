@@ -1,13 +1,14 @@
 #!/bin/bash
 
 if ! [ -f package.json ]; then
-  cd $(git rev-parse --show-toplevel)
-fi
-
-if ! [ -f package.json ]; then
-  SERVER_DIR=$(find . -maxdepth 3 -name server.ts)
-  if [ -n "$SERVER_DIR" ]; then
-    cd $(dirname $(realpath $SERVER_DIR))
+  here=$(pwd)
+  depth=${depth:-10}
+  for ((i=0; i < $depth; i++)); do
+    cd .. && [[ -f package.json ]] && ! [[ "$(pwd)" =~ node_modules ]] && found=true && break
+  done
+  if [ -z "$found" ]; then
+    echo -e "did not find package.json (depth=$depth) between\n$here\nand\n$(pwd)"
+    exit 1
   fi
 fi
 
@@ -30,8 +31,9 @@ copyAfterTsc() {
   fi
 }
 
-export PORT=${PORT:-6666}
+export PORT=${PORT:-12345}
 export TYPEORM_LOGGING=${TYPEORM_LOGGING:-true}
+export TSCW_TSC=${TSCW_TSC:-tsconfig.json}
 # export NODE_ENV=${NODE_ENV:-production}
 
 # helper to watch and run command
@@ -58,6 +60,7 @@ compileAndRun() {
     npm run prebuild
   fi
   npx tsc-watch \
+    -p $TSCW_TSC \
     --preserveWatchOutput \
     --compiler "$compiler" \
     --onSuccess "$runOnBuild" \

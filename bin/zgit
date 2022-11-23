@@ -51,7 +51,7 @@ elif [[ "$url" =~ repos.acrontum.net ]] || [[ "$url" =~ gitlab.test ]] || [[ "$u
   esac
 elif [[ "$url" =~ git.bmwgroup.net:7999 ]]; then
   upstreamMain=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
-  url=$(echo "$url" | sed 's|.*/|atc.bmwgroup.net/bitbucket/projects/AOSRE/repos/|g')
+  url=$(echo "$url" | sed 's|git.bmwgroup.net:7999/\([^/]\+\)/\(.*\)|atc.bmwgroup.net/bitbucket/projects/\1/repos/\2|g')
   page=browse
   case $1 in
     ?(-)b | ?(--)branches) page='branches';;
@@ -60,7 +60,7 @@ elif [[ "$url" =~ git.bmwgroup.net:7999 ]]; then
     ?(-)m | ?(--)merge?(s)) page='pull-requests';;
     ?(-)M | ?(--)merge-request) page="pull-requests?create&targetBranch=$upstreamMain&sourceBranch=$thisBranch";;
     ?(-)c | ?(--)commit?(s)) page="commits?until=$thisBranch";;
-    ?(-)p | ?(--)pipe?(line)?(s)) page='builds';;
+    ?(-)p | ?(--)pipe?(line)?(s)) page="builds?at=${thisBranch}";;
     ?(-)f | ?(--)files) page="browse?at=${thisBranch}";;
     ?(-)v | ?(--)version) getVersion "$url/-/raw/develop/package.json";;
     ?(-)h | ?(--)help) echo "$usage" && exit 0;;

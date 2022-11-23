@@ -1,0 +1,28 @@
+#!/bin/bash
+
+cmd="$@"
+if [ -z "$*" ]; then
+  cmd=bash
+fi
+
+echo "\
+FROM maven
+
+WORKDIR /tmp
+COPY . .
+
+RUN chown -R $(id -u):$(id -u) /tmp
+USER $(id -u)
+
+ENV MAVEN_CONFIG=\"/tmp/.m2\"
+ENV GRADLE_USER_HOME=/tmp
+ENV USER_HOME=/tmp
+ENV HOME=/tmp
+" >/tmp/mavenDockerfile
+
+docker build --tag maven_image -f /tmp/mavenDockerfile . \
+&& docker run \
+  -ti \
+  --user $(id -u) \
+  --workdir /tmp \
+  maven_image -- $cmd
