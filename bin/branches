@@ -6,6 +6,7 @@ options:
   -b, --branch BRANCH  Only compare to branch
   -r, --remote         Only print remotes
   -l, --local          Only print local
+  -o, --origin ORIGIN  Run against origin
   -v, --verbose        Print short commit diff for branches
                        (bails when > 10 and -b not supplied)
   -h, --help           Show this message
@@ -15,8 +16,8 @@ EOFUSAGE
 doCompare() {
   local branch="$1"
 
-  if ! [[ $branch =~ remotes/origin/HEAD ]]; then
-    local shortName="${branch/remotes\/origin\//}"
+  if ! [[ $branch =~ remotes/$OPT_ORIGIN/HEAD ]]; then
+    local shortName="${branch/remotes\/$OPT_ORIGIN\//}"
 
     read ahead behind < <(git rev-list --left-right --count $branch...$OPT_BRANCH 2>/dev/null)
     local msg="even"
@@ -40,7 +41,7 @@ doCompare() {
         colour=$'\e[0;33m'
         reset=$'\e[0;0m'
       fi
-    elif [[ $branch =~ remotes\/origin\/ ]]; then
+    elif [[ $branch =~ remotes\/$OPT_ORIGIN\/ ]]; then
       return
     fi
 
@@ -73,6 +74,7 @@ OPT_VERBOSE=
 OPT_ONLY_BRANCH=
 OPT_ONLY_LOCAL=
 OPT_ONLY_REMOTE=
+OPT_ORIGIN=origin
 thisBranch=$(git rev-parse --abbrev-ref HEAD)
 
 while [ -n "$1" ]; do
@@ -80,6 +82,7 @@ while [ -n "$1" ]; do
     -v | --verbose) OPT_VERBOSE=true ;;
     -b | --branch) OPT_ONLY_BRANCH=$2; shift ;;
     -r | --remote) OPT_ONLY_REMOTE=true ;;
+    -o | --origin) OPT_ORIGIN=$2; shift ;;
     -l | --local) OPT_ONLY_LOCAL=true ;;
     -h | --help) echo "$USAGE"; exit 0 ;;
     *)
@@ -115,9 +118,9 @@ fi
 
 while read branch; do
   allBranches["$branch"]="$branch"
-  shortName="${branch/remotes\/origin\//}"
+  shortName="${branch/remotes\/$OPT_ORIGIN\//}"
 
-  if [[ $branch =~ remotes/origin/HEAD ]]; then
+  if [[ $branch =~ remotes/$OPT_ORIGIN/HEAD ]]; then
     readingLocal=
     continue
   fi
