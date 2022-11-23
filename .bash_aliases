@@ -6,7 +6,7 @@ alias bashrc='source ~/.bashrc'
 alias ebashrc='sub ~/.bashrc &>/dev/null || vim ~/.bashrc'
 
 # Pretty print json
-pp() { python -m json.tool $*; }
+pp() { python3 -m json.tool $*; }
 # Cd and ls
 cdl() { cd "$@" && ls --color=auto; }
 # List octal permissions
@@ -39,11 +39,12 @@ goto() {
   declare -A locations=(
     [googler]=~/source/googler/
     [extensions]=~/.local/share/gnome-shell/extensions/
-    [port]=~/source/portfolio/
+    [port]=~/source/p-mcgowan/portfolio/
     [if]=~/source/ifarsh
     [ib]=~/source/isarbits
+    [acr]=~/source/acrontum
     [dsd]=~/source/acrontum/bmw/dsd
-    [aos]=~/source/acrontum/bmw/aos2
+    [aos]=~/source/acrontum/bmw/aos/aos2
     [dsdc]=~/source/acrontum/bmw/dsd/config
     [gen]=~/source/acrontum/open-source
     [bbox]=~/source/acrontum/blue-box
@@ -503,9 +504,10 @@ if [ -f ~/.git-completion.bash ]; then
   . ~/.git-completion.bash
   # Add git completion to aliases
   __git_complete gmerge _git_merge
-  __git_complete gpull _git_checkout
-  __git_complete gpush _git_checkout
-  __git_complete gkill _git_checkout
+  __git_complete gpull _git_pull
+  __git_complete gpush _git_push
+  __git_complete gcam _git_commit
+  __git_complete gcpush _git_push
 fi
 
 new-repo() {
@@ -528,6 +530,7 @@ ismerged() {
 
 ## Misc
 
+alias clip='xclip -sel clip'
 pedit() {
   img=/tmp/$(date +%s).png
   echo "trying to write and edit $img"
@@ -559,6 +562,7 @@ alias pirate_search='node ~/source/programming/node/pirateSearch/pirate.js'
 alias streams='google -w patmcgowan.ca/apps/stream'
 alias vantime='date -d"9 hours ago" +"%y.%m.%d %H:%M"'
 alias own='sudo chown $(id -u):$(id -g)'
+alias cdtemp='cd $(mktemp -d)'
 crlfToLf() {
   sed -i 's/^M$//' "$@"
 }
@@ -578,6 +582,7 @@ imout() {
 ~ _/\
 ~   /'
 }
+alias zoidberg='echo "(V) (°,,,,°) (V)" |tee /dev/tty |xclip'
 alias throwit='echo "(╯°□°）╯︵ ┻━┻" |tee /dev/tty |xclip'
 alias shrug='echo "¯\_(ツ)_/¯" |tee /dev/tty |xclip'
 ducksay() {
@@ -939,15 +944,15 @@ client() {
 morning() {
   case $1 in
     aos)
-      google -b outlook -b "bmw mail" -b "aos Jira" -b ghme -b "AOS hub" -b "\[ACR_BBOX\] bbox jira" -b "aos bitbucket"
-      psub dsd
+      google -b outlook -b "bmw mail" -b "jira sprint progress board view" -b ghme -b "AOS hub" -b "aos bitbucket"
+      psub acr
       teams
       pmux aos
     ;;
     dsd)
       teams
-      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b jira-applications -b "dsd hub"
-      psub dsd
+      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b "dsd hub"
+      psub acr
       pmux dsd
     ;;
     gen)
@@ -1004,10 +1009,28 @@ pmux() {
     ;;
     aos)
       goto aos;
+
+      compose_apps=""
+      # if [ -f docker/docker-compose.yml ]; then
+      #   compose_apps="$(awk -F '[ :]+' '
+      #     /^services/ {
+      #       reading_services = 1;
+      #       next;
+      #     }
+      #     /^[a-z\-_0-9]/ {
+      #       reading_services = 0;
+      #     }
+      #     /^  [a-z\-_0-9]+:/ {
+      #       if (reading_services && $2 != "aos2-vehicle-backend") {
+      #         printf("%s ", $2);
+      #       }
+      #     }' docker/docker-compose.yml)"
+      # fi
+
       tmux new-session \; \
         split-window -v \; \
         split-window -h \; \
-        send-keys -t0 'cd docker' C-m 'docker-compose up -d --build --force-recreate' C-m 'docker-compose logs -f' C-m \; \
+        send-keys -t0 'zgoto ad' C-m "docker-compose up -d --build --force-recreate $compose_apps" C-m 'docker-compose logs -f' C-m \; \
         send-keys -t1 'zgoto af' C-m 'zfrontend' C-m \; \
         send-keys -t2 'gst' C-m \; \
         select-pane -t2 \;
@@ -1062,7 +1085,7 @@ gtmux() {
   tmux new-session \; \
   split-window -h \; \
   send-keys -t0 'gst' C-m \; \
-  send-keys -t1 'gdiff' C-m \;
+  send-keys -t1 "gdiff $@" C-m \;
 }
 mtmux() {
   zs b
@@ -1188,12 +1211,18 @@ zgoto() {
 
   local DSD_ROOT=${HOME}/source/acrontum/bmw/dsd
   local BOX_ROOT=${HOME}/source/acrontum/blue-box
-  local AOS_ROOT=${HOME}/source/acrontum/bmw/aos2
+  local AOS_ROOT=${HOME}/source/acrontum/bmw/aos/aos2
 
   local backend=
   local frontend=
   local swagger=
   case "$1" in
+    aos | aos2) path=${AOS_ROOT}/ ;;
+    aosb | ab) path=${AOS_ROOT}/aos2-main-backend ;;
+    aosf | af) path=${AOS_ROOT}/aos2-frontend ;;
+    aosd | ad) path=${AOS_ROOT}/docker ;;
+    aoss | as) path=${AOS_ROOT}/spec/aos2-main-backend-spec ;;
+
     ?(dsd-)admin-panel-backend) path=${DSD_ROOT}/admin-panel/admin-panel-backend ;;
     ?(dsd-)admin-panel) path=${DSD_ROOT}/admin-panel/admin-panel ;;
     ?(dsd-)authentication) path=${DSD_ROOT}/authentication/authentication ;;
@@ -1228,17 +1257,11 @@ zgoto() {
     pg) path=${DSD_ROOT}/config/postgres/backups ;;
 
     bbox) path=${BOX_ROOT}/ ;;
-    auth) path=${BOX_ROOT}/ms-auth ;;
+    auth | msa | ms-auth) path=${BOX_ROOT}/ms-auth ;;
     bbb | blue-box-backend) path=${BOX_ROOT}/blue-box-backend ;;
     bbf | blue-box-frontend) path=${BOX_ROOT}/blue-box-frontend ;;
     tdw | tire-data-worker) path=${BOX_ROOT}/tire-data-worker ;;
     tmx | tire-machine-consumer) path=${BOX_ROOT}/tire-machine-consumer ;;
-    msa | ms-auth) path=${BOX_ROOT}/ms-auth ;;
-    aos | aos2) path=${AOS_ROOT}/ ;;
-    aosb | ab) path=${AOS_ROOT}/aos2-main-backend ;;
-    aosf | af) path=${AOS_ROOT}/aos2-frontend ;;
-    aosd | ad) path=${AOS_ROOT}/docker ;;
-    aoss | as) path=${AOS_ROOT}/spec/aos2-main-backend-spec ;;
     *) echo "path '$1' not found" && return 1 ;;
   esac
 
