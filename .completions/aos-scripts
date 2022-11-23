@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# if [ -f /home/patrickmcgowan/source/acrontum/bmw/dsd/config/apps.compose.yml ]; then
+# dsd_compose=/home/patrickmcgowan/source/acrontum/bmw/dsd/config/apps.compose.yml
+# if [ -f "$dsd_compose" ]; then
 #   compose_apps="$(awk -F '[ :]+' '
 #     /^services/ {
 #       flag = 1;
@@ -13,8 +14,13 @@
 #       if (flag) {
 #         printf("%s ", $2);
 #       }
-#     }' /home/patrickmcgowan/source/acrontum/bmw/dsd/config/apps.compose.yml)"
+#     }' "$dsd_compose")"
 
 #   complete -W "$compose_apps" klog kubesh runapps.sh zcheck-services zapp
 #   complete -W "$compose_apps frontend aos aosb aosf aoss af ab as ad"  zgoto
 # fi
+
+aos_apps="main-backend pdf moxy parts vehicle-data-backend"
+
+complete -W "$aos_apps" klog kubesh runapps.sh zcheck-services zapp
+complete -W "$aos_apps aos af ab as ad"  zgoto
