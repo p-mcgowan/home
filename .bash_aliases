@@ -175,6 +175,9 @@ spam() {
   done
   xdotool mouseup 3; xdotool mouseup 2;
 }
+epic() {
+  node -e "data=$(curl -s https://patmcgowan.ca/v1/epic); console.table(data.reduce((a,g) => ({...a,[g.title]:{title:g.title,price:g.price.totalPrice.discountPrice,link:\`https://www.epicgames.com/store/en-US/p/\${g.productSlug?.replace(/\/.*/g,'')}\`}}),{}));"
+}
 
 ## Computer Control:
 
@@ -400,6 +403,8 @@ glog() {
       git log --all --decorate --oneline --graph --date=format:"%Y-%m-%d %H:%M" --pretty=format:"%C(auto)%h %C(dim)%ad | %C(auto)[%an] %s %d" $* ;;
     -s | --short | s)
       git log --pretty=format:'%C(auto)%h %ad | %s%d [%an]' --color --graph --date=short $* ;;
+    --simple)
+      git log --format="%Cgreen%h%Creset [%an] %s%C(dim)%+b%Creset" $*;;
     -d | --diff | d)
       git log -p $* ;;
     -f | --from | f)
