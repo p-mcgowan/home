@@ -7,8 +7,8 @@ set tabstop=2
 set shiftwidth=2
 set expandtab
 set ruler
-set incsearch
 set hlsearch
+set incsearch
 set number
 set ignorecase
 set nomodeline
@@ -24,8 +24,10 @@ set backspace=indent,eol,start
 set background=dark
 set colorcolumn=80
 set colorcolumn=120
-set encoding=utf-8
+"set encoding=utf-8
 set fileencoding=utf-8
+set termguicolors
+set scrolloff=8
 set fileformat=unix
 " source them aliases
 set shell=bash\ --login
@@ -34,21 +36,15 @@ filetype on
 filetype plugin on
 filetype plugin indent on
 syntax on
+au BufNewFile,BufRead *.ts set filetype=typescript
+
+if has('mouse')
+  set mouse=a
+endif
 " underline highlight
 highlight Search ctermbg=none ctermfg=none cterm=underline,bold
 " No netrwhist
 :let g:netrw_dirhistmax = 0
-if has('mouse')
-  set mouse=a
-endif
-
-au BufNewFile,BufRead *.ts set filetype=typescript
-
-function! Tabs()
-  setlocal tabstop=2
-  setlocal shiftwidth=2
-endfunction
-
 function! StripTrailingWhitespace()
   " Don't strip on these filetypes
   if &ft =~ 'md\|markdown\|pug'
@@ -56,10 +52,19 @@ function! StripTrailingWhitespace()
   endif
   %s/\s\+$//e
 endfunction
-
 autocmd BufWritePre * call StripTrailingWhitespace()
+" Jump to same line as when closed
+if has("autocmd")
+  au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$")
+        \| exe "normal! g'\"" | endif
+endif
 
-autocmd Filetype java set makeprg=javac\ %
+nnoremap <CR> :noh<CR><CR>
+
+function! Tabs()
+  setlocal tabstop=2
+  setlocal shiftwidth=2
+endfunction
 
 set omnifunc=syntaxcomplete#Complete
 set completefunc=syntaxcomplete#Complete
@@ -68,23 +73,12 @@ set completeopt=longest,menuone
 inoremap <expr> <CR> pumvisible() ? "\<C-y>" : "\<C-g>u\<CR>"
 inoremap <C-@> <C-x><C-o>
 " Autocomplete on keydown
-"function! OpenCompletion()
-"  if !pumvisible() && ((v:char >= 'a' && v:char <= 'z') || (v:char >= 'A' && v:char <= 'Z'))
-"    call feedkeys("\<C-x>\<C-o>", "n")
-"  endif
-"endfunction
+function! OpenCompletion()
+  if !pumvisible() && ((v:char >= 'a' && v:char <= 'z') || (v:char >= 'A' && v:char <= 'Z'))
+    call feedkeys("\<C-x>\<C-o>", "n")
+  endif
+endfunction
 "autocmd InsertCharPre * call OpenCompletion()
-
-" Tag lists
-nnoremap <F3> :TlistToggle<CR>
-let Tlist_Use_Right_Window = 1
-let Tlist_WinWidth = 50
-
-" Jump to same line as when closed
-if has("autocmd")
-  au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$")
-    \| exe "normal! g'\"" | endif
-endif
 
 "Set the color for the popup menu
 :highlight Pmenu ctermbg=blue ctermfg=white
@@ -92,32 +86,29 @@ endif
 :highlight PmenuSbar ctermbg=cyan ctermfg=green
 :highlight PmenuThumb ctermbg=white ctermfg=red
 
-" Mappings
-map <F11> :call Testfn()<Return>
-
-" Plugins
-let g:ctrlp_working_path_mode = 0
-let g:ctrlp_custom_ignore = 'node_modules\|.git'
-
-" Commands
-:command Gotodefinition <c-]>
-
 " Write as root
-" Functions
 :function! s:SudoWrite()
 :w !sudo tee %
 :endfunction
 :command! SudoWrite call s:SudoWrite()
 
+" Plugins
+let g:ctrlp_working_path_mode = 0
+let g:ctrlp_custom_ignore = 'node_modules\|.git'
 let g:netrw_banner = 0
 let g:netrw_liststyle = 3
 "let g:netrw_browse_split = 2
 let g:netrw_altv = 1
 let g:netrw_winsize = 25
-"augroup ProjectDrawer
-"  autocmd!
-"  autocmd VimEnter * :Vexplore
-"augroup END
+
+" Commands
+:command Gotodefinition <c-]>
+
+" Mappings
+map <F11> :call Testfn()<Return>
+map <leader>p "_dP
+map <leader>y "+y
+map <leader>y "+y
 
 map <ESC>[1;6B <C-S-Down>
 map <ESC>[1;6A <C-S-Up>
