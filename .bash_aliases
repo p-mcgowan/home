@@ -569,7 +569,7 @@ alias vantime='date -d"9 hours ago" +"%y.%m.%d %H:%M"'
 alias own='sudo chown $(id -u):$(id -g)'
 alias cdtemp='cd $(mktemp -d)'
 crlfToLf() {
-  sed -i 's/^M$//' "$@"
+  sed -i -e 's/\r$//' "$@"
 }
 alias xlcsv='libreoffice --headless --convert-to csv'
 asciitree() { tree "$*" | sed 's/├/\+/g; s/─/-/g; s/└/\\/g'; }
