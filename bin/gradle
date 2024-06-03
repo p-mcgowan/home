@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -x
+
+docker run -ti \
+  ${DOCKER_ARGS} \
+  --rm \
+  --network host \
+  -v $PWD:/temp \
+  --workdir /temp \
+  --name "gradle-$RANDOM" \
+  aos2-java-common \
+  bash -c "cp /code/gradle-bin.zip . && cp /code/gradle-bin.zip gradle-7.5-bin.zip && ./gradlew --no-daemon $@"
+
+# bash -c "cp /code/gradle-bin.zip . && bash"
+# --env "JAVA_HOME=/opt/java/openjdk" \

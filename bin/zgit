@@ -3,7 +3,7 @@
 set -e -o pipefail
 shopt -s extglob
 
-cd $(git rev-parse --show-toplevel)
+# cd $(git rev-parse --show-toplevel)
 
 thisBranch=${2:-$(git rev-parse --abbrev-ref HEAD)}
 url=$(git remote get-url --push origin |awk -F '@' '{ sub(/:/, "/");sub(/\.git/, ""); print($2) }')
@@ -12,30 +12,58 @@ page=
 usage="$(basename $0) [page]
 will open to the repo page
 page:
-  -b, --branch,                   Open to the current branch
-  -B, --branches                  Open to branches
+  -B, --branch,                   Open to the current branch
+  -b, --branches                  Open to branches
   -m, --merge(s)                  Open merges
   -M, --merge-request             Open new merge request for branch
   -c, --commit(s)                 Open commits
+  -d, --diff                      Open compare branch
   -p, --pipe                      Open pipelines (gitlab only)
   -f, --files                     Open file finder
   -v, --version                   Show latest package.json version
   -h, ---h, --help                Show this menu"
 
-if [[ "$url" =~ github.com ]]; then
+stderr() {
+  echo >&2 "$@"
+}
+isGithub() {
+  [[ "$url" =~ github.com ]] || [[ "$url" =~ atc-github.azure.cloud.bmw ]]
+  return $?
+}
+isGitlab() {
+  [[ "$url" =~ repos.acrontum.net ]] || [[ "$url" =~ gitlab.test ]] || [[ "$url" =~ gitlab.com ]]
+  return $?
+}
+isBitucket() {
+  [[ "$url" =~ git.bmwgroup.net:7999 ]]
+  return $?
+}
+
+githubFindFile() {
+  fullpath=$(realpath $1)
+  root=$(git rev-parse --show-toplevel)/
+  echo "${fullpath/$root/}"
+}
+
+if isGithub; then
   case $1 in
     ?(-)b | ?(--)branches) page='branches';;
     ?(-)B | ?(--)branch) page="tree/$thisBranch";;
     ?(-)m | ?(--)merge?(s)) page='pulls';;
-    ?(-)M | ?(--)merge-request) page="pull/new/$thisBranch";;
+    ?(-)M | ?(--)merge-request) page="compare/$thisBranch?expand=1&title=$thisBranch";;
     ?(-)c | ?(--)commit?(s)) page="commits/$thisBranch";;
-    ?(-)f | ?(--)files) page="find/${thisBranch}";;
+    ?(-)d | ?(--)diff) page="compare/$thisBranch";;
+    ?(-)f | ?(--)files)
+        thisBranch=$(git rev-parse --abbrev-ref HEAD)
+        page="blob/${thisBranch}/$(githubFindFile "$2")"
+    ;;
+    ?(-)p | ?(--)pipe?(line)?(s)) page="actions";;
     # p | pipe | pipeline | pipelines) page='/pipelines';;
     ?(-)h | ?(--)help) echo "$usage" && exit 0;;
     '') ;;
-    *) echo unknown page $page; exit 1;;
+    *) stderr unknown page $page; exit 1;;
   esac
-elif [[ "$url" =~ repos.acrontum.net ]] || [[ "$url" =~ gitlab.test ]] || [[ "$url" =~ gitlab.com ]]; then
+elif isGitlab; then
   case $1 in
     ?(-)b | ?(--)branches) page='-/branches/all';;
     ?(-)B | ?(--)branch) page="-/tree/$thisBranch";;
@@ -47,42 +75,41 @@ elif [[ "$url" =~ repos.acrontum.net ]] || [[ "$url" =~ gitlab.test ]] || [[ "$u
     ?(-)v | ?(--)version) getVersion "$url/-/raw/develop/package.json";;
     ?(-)h | ?(--)help) echo "$usage" && exit 0;;
     '') ;;
-    *) echo unknown page $page; exit 1;;
+    *) stderr unknown page $page; exit 1;;
   esac
-elif [[ "$url" =~ git.bmwgroup.net:7999 ]]; then
+elif isBitucket; then
   upstreamMain=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
   url=$(echo "$url" | sed 's|git.bmwgroup.net:7999/\([^/]\+\)/\(.*\)|atc.bmwgroup.net/bitbucket/projects/\1/repos/\2|g')
-  page=browse
   case $1 in
     ?(-)b | ?(--)branches) page='branches';;
     ?(-)B | ?(--)branch) page="commits?until=refs%2Fheads%2F${thisBranch}";;
-    # ?(-)B | ?(--)branch) page="browse?at=${thisBranch}";;
     ?(-)m | ?(--)merge?(s)) page='pull-requests';;
     ?(-)M | ?(--)merge-request) page="pull-requests?create&targetBranch=$upstreamMain&sourceBranch=$thisBranch";;
     ?(-)c | ?(--)commit?(s)) page="commits?until=$thisBranch";;
     ?(-)p | ?(--)pipe?(line)?(s)) page="builds?at=${thisBranch}";;
-    ?(-)f | ?(--)files) page="browse?at=${thisBranch}";;
+    ?(-)d | ?(--)diff) page="compare/diff?sourceBranch=$thisBranch";;
+    ?(-)f | ?(--)files) page="browse$(realpath "${thisBranch}" |sed "s,$(git rev-parse --show-toplevel),,g")";;
     ?(-)v | ?(--)version) getVersion "$url/-/raw/develop/package.json";;
     ?(-)h | ?(--)help) echo "$usage" && exit 0;;
-    '') ;;
-    *) echo unknown page $page; exit 1;;
+    '') page=browse;;
+    *) stderr unknown page $page; exit 1;;
   esac
 else
-  echo url not found - $url
-  echo 'git remote get-url --push origin'
+  stderr url not found - $url
+  stderr 'git remote get-url --push origin'
   git remote get-url --push origin
-  echo $'git remote get-url --push origin |awk -F \'@\' \'{ sub(/:/, "/"); sub(/\.git/, ""); print($2) }\''
+  stderr $'git remote get-url --push origin |awk -F \'@\' \'{ sub(/:/, "/"); sub(/\.git/, ""); print($2) }\''
   git remote get-url --push origin |awk -F '@' '{ sub(/:/, "/"); sub(/\.git/, ""); print($2) }'
   exit 1
 fi
 
 if [[ $url =~ gitlab.test ]]; then
-  echo $url
+  stderr $url
   url="http://$(echo $url |sed 's/:[0-9]\+//g' )"
-  echo $url
+  stderr $url
 else
   url=https://$url
 fi
 
-echo google -w "$url/$page"
+stderr google -w "$url/$page"
 google -w "$url/$page"

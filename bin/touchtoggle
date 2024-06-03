@@ -51,6 +51,10 @@ toggleTouchscreen() {
   fi
 }
 
+usePadAsMouse() {
+  sudo sh -c 'rmmod psmouse; modprobe psmouse proto=imps'
+}
+
 usage='Usage: '$(basename $0)' <option>
 options:
   s, -s, --screen, screen    Toggle touch screen

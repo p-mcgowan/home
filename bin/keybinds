@@ -1,24 +1,30 @@
 #!/bin/bash
 
-# set -x
-# exec > /tmp/kb.log 2>&1
+set -x
+exec > /tmp/kb.log 2>&1
+
+declare -A nameToProcessMap=([teams]="electron")
 
 declare -A nameToLaunchCommand=(\
   [sublime]=sub \
   [chrome]=$HOME/bin/google \
   [brave]=$HOME/bin/google \
+  [electron]=$HOME/tmp/teams-unpacked/start.sh \
 )
 
 declare -A defaulted=(\
   [slack]=false \
 )
 
-if [ -z "$(pgrep $1)" ] || ! ${defaulted[${1-false}]}; then
-  if ! [ -z ${nameToLaunchCommand[$1]} ]; then
-    ${nameToLaunchCommand[$1]}
+name=${nameToProcessMap[$1]:-$1}
+shift
+
+if [ -z "$(pgrep $name)" ] || ! ${defaulted[${name-false}]}; then
+  if ! [ -z ${nameToLaunchCommand[$name]} ]; then
+    ${nameToLaunchCommand[$name]}
   else
-    $*
+    $name "$@"
   fi
 else
-  $HOME/bin/bf $1
+  $HOME/bin/bf $name
 fi

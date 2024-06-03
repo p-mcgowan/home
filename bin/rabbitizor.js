@@ -71,7 +71,7 @@ const pp = (data) => {
         }
       }
 
-      const toNum = s => {
+      const toNum = (s) => {
         const n = Number(s);
         return Number.isNaN(n) ? '-' : n;
       };
@@ -87,9 +87,7 @@ const pp = (data) => {
         Math.abs(message_stats && message_stats.ack_details ? message_stats.ack_details.rate : 0) || 0,
       ];
       let msg = '';
-      const netOut = backing_queue_status
-        ? backing_queue_status.avg_egress_rate - backing_queue_status.avg_ingress_rate
-        : 0;
+      const netOut = backing_queue_status ? backing_queue_status.avg_egress_rate - backing_queue_status.avg_ingress_rate : 0;
 
       if (Date.now() - new Date(idle_since + ' GMT') > 30 * 1000) {
         msg = 'Idle';
@@ -147,7 +145,8 @@ const ping = () =>
       res.on('data', (chunk) => (rawData += chunk));
       res.on('end', () => {
         try {
-          return resolve(JSON.parse(rawData));
+          const response = JSON.parse(rawData);
+          return response.error ? reject(response) : resolve(response);
         } catch (e) {
           console.error(rawData);
           return reject(e);
@@ -244,7 +243,7 @@ const programArgs = process.argv.slice(2).reduce(
   },
   {
     time: 500,
-  }
+  },
 );
 
 const envToUrl = {
@@ -315,4 +314,8 @@ const main = async () => {
     await new Promise((res) => setTimeout(res, programArgs.time));
   }
 };
-main();
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

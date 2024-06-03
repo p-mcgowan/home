@@ -1,0 +1,35 @@
+#!/bin/bash
+
+if [ $# -ne 2 ]; then
+  echo >&2 -e 'usage: code-rename <from> <to>'
+  exit 0
+fi
+
+from=$(echo "$1" |sed 's|/$||g')
+to=$(echo "$2" |sed 's|/$||g')
+
+camelCase() {
+  sed -r 's/-(\w)/\U\1/g' <<<"$1"
+}
+
+camelFrom=$(camelCase "$from")
+camelTo=$(camelCase "$to")
+
+echo "from: $from"
+echo "to: $to"
+echo "camelFrom: $camelFrom"
+echo "camelTo: $camelTo"
+echo
+
+read -p 'enter to continue' ans
+
+echo cp -r $from $to
+cp -r $from $to
+
+for target in $to/*; do
+  echo "sed -i -e \"s|${from}|${to}|g\" \"$target\" -e \"s|${camelFrom}|${camelTo}|g\" -e \"s|${camelFrom^}|${camelTo^}|g\""
+  sed -i -e "s|${from}|${to}|g" -e "s|${camelFrom}|${camelTo}|g" -e "s|${camelFrom^}|${camelTo^}|g" "$target"
+
+  echo mv $target ${target/$from/$to}
+  mv $target ${target/$from/$to}
+done

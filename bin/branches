@@ -111,6 +111,7 @@ matches=($(git branch -a |sed 's/\*\?\ \+//g' | grep -v -- '->' |grep "\b${OPT_B
 
 if [ ${#matches[@]} == 0 ]; then
   echo "Did not find branch: $OPT_BRANCH"
+  echo "try git remote set-head origin --auto"
   exit 1
 else
   OPT_BRANCH=${matches[0]}

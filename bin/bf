@@ -1,27 +1,44 @@
 #!/bin/bash
 
-if [ $# -ne 1 ];then
-  echo -e "Usage: `basename $0` PROGRAM_NAME\n
-           For example:\n\t
-           '`basename $0` gnome-terminal' for Terminal\n\t
-           '`basename $0` firefox' for Firefox\n\t
-           '`basename $0` chromium-browser' for Chromium\n\t..."
+script_name=$(basename $0)
+
+if [[ $# -eq 0 ]]; then
+  echo >&2 "\
+$script_name requires an argument
+
+Usage: $script_name PROGRAM_NAME
+For example:
+  $script_name gnome-terminal
+  $script_name firefox
+  $script_name chromium-browser"
   exit 1
 fi
 
-pids=" $(pgrep $@) "
+declare -a pids
+allpids="$(pgrep $@)"
 
-if [ "$pids" = "  " ]; then # the string "  " contain two spaces
-    case $1 in
-        chrome) google;;
-        sublime) sub;;
-        *) command $1;;
-    esac
-    exit 0
+if [[ ${#allpids[@]} -eq 0 ]]; then
+  case $1 in
+    chrome) google;;
+    sublime) sub;;
+    *) command $1;;
+  esac
+  exit 0
 fi
 
+for pid in ${allpids[@]}; do
+  pids[pid]=true
+done
+
 wmctrl -lp | while read identity desktop_number PID window_title; do
-    if [ "${pids/$PID}" != "$pids" ]; then
-        wmctrl -ia $identity
-    fi
+  # echo ""
+  # echo "window_title:$window_title"
+  # echo "PID:$PID"
+  # echo "identity:$identity"
+  if [[ $PID -eq 0 ]]; then
+    continue
+  fi
+  if [[ "${pids[$PID]}" == "true" ]]; then
+    wmctrl -ia $identity
+  fi
 done
