@@ -146,3 +146,7 @@ fi
 
 export PATH=$PATH:$HOME/source/acrontum/bmw/dsd/config/scripts/
 export PATH=$PATH:$HOME/work/aos/
+# https://stackoverflow.com/questions/64804749/why-is-docker-build-not-showing-any-output-from-commands
+#export DOCKER_BUILDKIT=0
+export BUILDKIT_PROGRESS=plain
+. "$HOME/.cargo/env"

@@ -9,7 +9,7 @@ if $debug; then
 fi
 
 # Basic scheduling program
-working_dir=~/source/coursenotes
+working_dir=~/source/p-mcgowan/notes
 config_file="$working_dir/config/cnotes.conf"
 script_config=~/.config/coursenotes.config
 

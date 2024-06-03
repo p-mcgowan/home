@@ -6,8 +6,9 @@ mkdir -p $(dirname $logfile)
 
 
 runscript() {
-  if [ ! -f "$logfile" ]; then
-    echo >&2 file not found "$logfile"
+  local target=${1:-$logfile}
+  if [ ! -f "$target" ]; then
+    echo >&2 file not found "$target"
     exit 1
   fi
   echo >/tmp/logscript.js "$(cat << NODE_SCRIPT
@@ -20,7 +21,8 @@ const fmtMins = (mins) => {
   return \`\${hh}:\${mm}\`;
 }
 
-const times = require('fs').readFileSync('$logfile', 'utf8').split('\n').reduce((last, line) => {
+const skip = /\b(smoke|lunch|out|wc)\b/;
+const times = require('fs').readFileSync('$target', 'utf8').split('\n').reduce((last, line) => {
   let data = last?.data || {};
 
   if (!line) {
@@ -39,9 +41,15 @@ const times = require('fs').readFileSync('$logfile', 'utf8').split('\n').reduce(
   return { date, message, data };
 }, null);
 
+let totalMins = 0;
 Object.entries(times.data).forEach(([message, mins]) => {
+  if (!skip.test(message)) {
+    totalMins += mins;
+  }
   console.log(\`\${fmtMins(mins)} | \${message}\`);
 });
+
+console.error(\`total: \${fmtMins(totalMins)}\`)
 NODE_SCRIPT
   )" && node /tmp/logscript.js
 }
@@ -59,8 +67,9 @@ options
   -E               edit current log file (sublime)
   -r, --print-raw  cat current log file
   -p, --print      group and print logs
-  -P, --previous   show last log
+  -P, --previous   print last day's logfile
   -h, --help       show this menu"
+  # -t, --times      print current log file with times
 
 getLogfile() {
   if [ -z "$1" ]; then
@@ -92,15 +101,38 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
+printTimes() {
+  awk -F '[\\]\\[\\-T:+]' '{
+    if (!t1) {
+      t1 = mktime(sprintf("%d %d %d %d %d %d", $2, $3, $4, $5, $6, $7));
+      printf($0);
+      next;
+    }
+
+    t2 = mktime(sprintf("%d %d %d %d %d %d", $2, $3, $4, $5, $6, $7));
+    diff = (t2 - t1);
+    printf(" (%d:%02d:%02d)\n", diff / 3600, (diff / 60) % 60, diff % 60);
+    printf($0);
+    t1 = mktime(sprintf("%d %d %d %d %d %d", $2, $3, $4, $5, $6, $7));
+  }
+  END {
+    t2 = systime();
+    diff = (t2 - t1);
+    printf(" (%d:%02d:%02d)\n", diff / 3600, (diff / 60) % 60, diff % 60);
+  }' $logfile
+}
+
 while [ -n "$1" ]; do
   case $1 in
     -f | --file) shift ; logfile=$(getLogfile "$1") ;;
     -e | --edit) vim $logfile ;;
     -E) sub $logfile ;;
     -E | --edit-vim) vim $logfile ;;
-    -r | --print-raw) cat $logfile ;;
+    # -r | --print-raw) cat $logfile ;;
+    # -t | --times) printTimes $logfile ;;
+    -r | --print-raw) printTimes $logfile ;;
     -p | --print) runscript ;;
-    -P | --previous) logfile=$(getLogfile $(ls -1 $logDir |grep -B 1 $(date -I) |head -n1)) ;;
+    -P | --previous) runscript $(dirname $logfile)/$(ls -1 $(dirname $logfile) |grep -B1 $(basename $logfile) |head -n1) ;;
     -h | --help | '') echo "$usage"; exit 0 ;;
     --) shift; [[ -z "$*" ]] || echo "[$(date -Is)] $*" >> $logfile ;;
     -*) echo >&2 -e "unknown option '$1'. To start a log with a '-', use 'log -- -<msg>'\n\n$usage"; exit 1 ;;

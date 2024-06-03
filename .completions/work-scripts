@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# dsd_compose=/home/patrickmcgowan/source/acrontum/bmw/dsd/config/apps.compose.yml
+# if [ -f "$dsd_compose" ]; then
+#   compose_apps="$(awk -F '[ :]+' '
+#     /^services/ {
+#       flag = 1;
+#       next;
+#     }
+#     /^[a-z]/ {
+#       flag = 0;
+#     }
+#     /^  [a-z\-_]+:/ {
+#       if (flag) {
+#         printf("%s ", $2);
+#       }
+#     }' /home/patrickmcgowan/source/acrontum/bmw/dsd/config/apps.compose.yml)"
+
+#   complete -W "$compose_apps" klog kubesh runapps.sh zcheck-services zapp
+#   complete -W "$compose_apps frontend aos aosb aosf aoss af ab as ad"  zgoto
+# fi
+
+# list current pods
+# pods |grep -o 'deployment-[^0-9]\+' |sed -e 's/deployment-//g' -e 's/-$//g'
+
+aos_apps="moxy pdf-microservice main-backend frontend gateway service-case-backend vehicle-data-backend"
+lbsi_apps="classifier consumer backend frontend gateway moxy publisher"
+
+complete -W "$aos_apps $lbsi_apps" klog kubesh runapps.sh zcheck-services zapp

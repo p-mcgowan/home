@@ -101,6 +101,67 @@ DEFAULT_HEADERS=\"$DEFAULT_HEADERS\"
 COOKIE_HEADER=\"$COOKIE_HEADER\"" > $CONFIG_FILE
 }
 
+# reauth() {
+#   method="GET"
+#   data=''
+
+#   $verbose && echo "curl -H \"content-type: application/json\" "$data" ${REAUTH_URL}"
+#   result=$({ curl -vvv -H "Content-Type: application/json" "$data" ${REAUTH_URL}; } 2>$resultsFile)
+#   echo $result >>$resultsFile
+
+#   # Look for Set-Cookie headers in the response
+#   cookies=($(awk '/Set-Cookie/ { printf("%s ", $3); }' $resultsFile))
+#   if [ ${#cookies[@]} -eq 0 ]; then
+#     (echo "$result" | python -m json.tool 2>/dev/null || echo "$result") |tee -a $resultsFile
+#     exit 1
+#   fi
+
+#   writeConfig COOKIE_HEADER "\"-H 'Cookie: ${cookies[@]}'\""
+#   echo -e "Authenticated with cookies ${cookies[@]}"
+#   exit 0
+# }
+
+# redefine this in config to overwrite
+reauth() {
+  if [ -z "$data" ]; then
+    # TODO: make email/password variable
+    data='{"email":"'$username'","password":"'$password'"}'
+  fi
+  if [ -z "$method" ]; then
+    method="POST"
+  fi
+  if [ "$method" == "GET" ]; then
+    data=''
+  else
+    data="-d \"$data\""
+  fi
+
+  $verbose && echo "curl -H \"content-type: application/json\" "$data" ${REAUTH_URL}"
+  result=$({ curl -vvv -H "Content-Type: application/json" "$data" ${REAUTH_URL}; } 2>$resultsFile)
+  echo $result >>$resultsFile
+
+  # Searches JSON response for "<DATA_TOKEN_STRING>" : "<dataTokenValue>""
+  regex="${DATA_TOKEN_STRING}"'"[ ]*:[ ]*"([^"]+)"'
+  if [[ "$result" =~ $regex ]]; then
+    token=${BASH_REMATCH[1]}
+    writeConfig AUTH_HEADER "\"\${AUTH_HEADER_KEY}$token\""
+  else
+    # Look for Set-Cookie headers in the response
+    cookieRegex='[Ss]et-[Cc]ookie:\ ([^;]+)'
+    responseSetCookie="$(grep -io 'Set-Cookie: [^;]\+' $resultsFile)"
+    if [[ $responseSetCookie =~ $cookieRegex ]]; then
+      writeConfig COOKIE_HEADER "\"-H 'Cookie: ${BASH_REMATCH[1]}'\""
+      echo "Api sent 'set-cookie' ${BASH_REMATCH[1]}"
+      exit 0
+    else
+      (echo "$result" | python -m json.tool 2>/dev/null || echo "$result") |tee -a $resultsFile
+      exit 1
+    fi
+  fi
+  echo -e "Authenticated as $username:\n$token"
+  exit 0
+}
+
 if [ -f $CONFIG_FILE ]; then
   source $CONFIG_FILE
 else
@@ -325,10 +386,10 @@ fi
 
 writeConfig AUTH_HEADER_KEY "\"$AUTH_HEADER_KEY\""
 writeConfig DATA_TOKEN_STRING "\"$DATA_TOKEN_STRING\""
-writeConfig REAUTH_URL "\"$REAUTH_URL\""
+# writeConfig REAUTH_URL "\"$REAUTH_URL\""
 AUTH_HEADER="${AUTH_HEADER_KEY}${AUTH_HEADER/$AUTH_HEADER_KEY/}"
 
-if $saveConfig; then
+if [ -n "$saveConfig" ]; then
   writeConfig
 fi
 
@@ -345,43 +406,7 @@ if [ -n "$saveConfig" ] || [ -n "$dryRun" ]; then
 fi
 
 if $reauth; then
-  if [ -z "$data" ]; then
-    # TODO: make email/password variable
-    data='{"email":"'$username'","password":"'$password'"}'
-  fi
-  if [ -z "$method" ]; then
-    method="POST"
-  fi
-  if [ "$method" == "GET" ]; then
-    data=''
-  else
-    data="-d \"$data\""
-  fi
-
-  $verbose && echo "curl -H \"content-type: application/json\" "$data" ${REAUTH_URL}"
-  result=$({ curl -vvv -H "Content-Type: application/json" "$data" ${REAUTH_URL}; } 2>$resultsFile)
-  echo $result >>$resultsFile
-
-  # Searches JSON response for "<DATA_TOKEN_STRING>" : "<dataTokenValue>""
-  regex="${DATA_TOKEN_STRING}"'"[ ]*:[ ]*"([^"]+)"'
-  if [[ "$result" =~ $regex ]]; then
-    token=${BASH_REMATCH[1]}
-    writeConfig AUTH_HEADER "\"\${AUTH_HEADER_KEY}$token\""
-  else
-    # Look for Set-Cookie headers in the response
-    cookieRegex='[Ss]et-[Cc]ookie:\ ([^;]+)'
-    responseSetCookie="$(grep -io 'Set-Cookie: [^;]\+' $resultsFile)"
-    if [[ $responseSetCookie =~ $cookieRegex ]]; then
-      writeConfig COOKIE_HEADER "\"-H 'Cookie: ${BASH_REMATCH[1]}'\""
-      echo "Api sent 'set-cookie' ${BASH_REMATCH[1]}"
-      exit 0
-    else
-      (echo "$result" | python -m json.tool 2>/dev/null || echo "$result") |tee -a $resultsFile
-      exit 1
-    fi
-  fi
-  echo -e "Authenticated as $username:\n$token"
-  exit 0
+  reauth
 fi
 
 if ! $fullURL; then
@@ -427,11 +452,11 @@ echo >> $resultsFile
 eval "$toRun" 1> $tmpfile 2>> $resultsFile
 cat $tmpfile >> $resultsFile
 
+
 # Look for Set-Cookie headers in the response
-cookieRegex='[Ss]et-[Cc]ookie:\ ([^;]+)'
-responseSetCookie="$(grep -io 'Set-Cookie: [^;]\+' $resultsFile)"
-if [[ $responseSetCookie =~ $cookieRegex ]]; then
-  writeConfig COOKIE_HEADER "\"-H 'Cookie: ${BASH_REMATCH[1]}'\""
+cookies=($(awk '/Set-Cookie/ { printf("%s ", $3); }' $resultsFile))
+if [ ${#cookies[@]} -ne 0 ]; then
+  writeConfig COOKIE_HEADER "\"-H 'Cookie: ${cookies[@]}'\""
 fi
 
 $verbose && grep '^[<>\*]' $resultsFile
@@ -440,8 +465,28 @@ if ! [ -s $tmpfile ]; then
   exit 1
 fi
 
+colourStatus() {
+  status="$1"
+  if [ -z "$status" ]; then
+    return
+  fi
+  if [[ $status -gt 499 ]]; then
+    echo -ne '\033[31m'
+  elif [[ $status -gt 399 ]]; then
+    echo -ne '\033[33m'
+  elif [[ $status -gt 299 ]]; then
+    echo -ne '\033[36m'
+  else
+    echo -ne '\033[32m'
+  fi
+
+  echo -e >&2 "$status\033[0m"
+}
+
 if [ -z "$output" ]; then
   contentType="$(grep -io 'Content-Type: [^;]\+' $resultsFile)"
+  status=$(awk -F' ' '/^< / { printf($3); exit; }' $resultsFile)
+  colourStatus "$status"
   if [[ $contentType =~ application.json ]] && [ -z "$raw" ]; then
     (cat $tmpfile | python -m json.tool 2>/dev/null || cat $tmpfile) |tee -a $resultsFile
   else

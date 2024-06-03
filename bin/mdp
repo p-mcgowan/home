@@ -12,7 +12,13 @@ RUN pip install grip
 
 # RUN sed -i "s|password, False, args['--wide']|password, True, args['--wide']|g" /usr/local/lib/python3.10/site-packages/grip/command.py
 
-CMD ["grip"]
+RUN mkdir -p ~/.grip
+RUN echo 'AUTOREFRESH=False' >>~/.grip/settings.py
+RUN cat ~/.grip/settings.py
+
+# sed -i "s/autorefresh=True/autorefresh=False/g" $(pip show grip |awk -F':' '/^Location/ {print $2}')/grip/api.py
+
+CMD ["grip", "--norefresh"]
 EOF
 
 cd - &>/dev/null

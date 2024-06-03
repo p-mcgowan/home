@@ -14,10 +14,10 @@ fi
 
 sed -i "s/\"font_size\": [0-9]\+,/\"font_size\": $fs,/g" $prefs
 
-themeFontSize=$(printf %.0f $(echo "6 + .67 * $fs" | bc -l))
-themePadding=$(printf %.0f $(echo "-2 + .44 * $fs" | bc -l))
+sidebarFontSize=$(printf %.0f $(echo "6 + .8 * $fs" | bc -l))
+sidebarPadding=$(printf %.0f $(echo "-2 + .5 * $fs" | bc -l))
 
 sed -i \
-  -e "s/\"font.size\": [0-9]\+/\"font.size\": $themeFontSize/g" \
-  -e "s/\"row_padding\": \[\([0-9]\+\), [0-9]\+\]/\"row_padding\": \[\1, $themePadding]/g" \
+  -e "s/\"font.size\": [0-9]\+/\"font.size\": $sidebarFontSize/g" \
+  -e "s/\"row_padding\": \[\([0-9]\+\), [0-9]\+\]/\"row_padding\": \[\1, $sidebarPadding]/g" \
   $theme
