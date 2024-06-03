@@ -136,6 +136,77 @@ inoremap <C-Left> <S-Left>
 vnoremap <C-Right> <S-Right>
 vnoremap <C-Left> <S-Left>
 
+nnoremap <C-a> ggVG
+nnoremap <C-S-c> "*y
+
+" base64 decode
+vnoremap <leader>46 y:let @"=system('base64 --decode', @")<cr>gvP
+" base64 encode
+vnoremap <leader>64 y:let @"=system('base64 --wrap 0', @")<cr>gvP
+
+"incremen each sub
+":function Increment(s, e, rep, inc)
+":let i = a:s | g/a:rep/s//\=i/ | let i = i + a:inc
+":endfunction"
+
+"line up columns
+":function TabTo(repl)
+":s/\((@a:repl)\)/\=submatch(0) . repeat(' ', n - strlen(submatch(0)))
+":endfunction
+
+":function Repl(start) range
+":let @a=a:start | :'<,'>s/\([0-9]\+\)/\=\1(@a+setreg('a', @a + 1))/g
+":endfunction
+
+":function Testfn()
+"  let INDENT_FMT       = '\([ ]*\)'
+"  let FN_NAME_FMT      = '\(.*\)'
+"  let PARAM_NAME_FMT   = '[\*]\+\([a-zA-Z_]\+\)'
+"  let PARAM_TYPE_FMT   = '[ ]*\(.*\)[ ]*'
+"  let PARAM_FMT        = '\(' . PARAM_TYPE_FMT . PARAM_NAME_FMT . '[,)]\)*'
+"  "let CAPTURE_FMT      = '\(' . INDENT_FMT . FN_NAME_FMT . '(' . PARAM_FMT . '[ ]*{.*\)'
+"  let CAPTURE_FMT      = '^\(' . INDENT_FMT . FN_NAME_FMT . '(.*)[ ]*{.*\)$'
+"
+"  let line = search(CAPTURE_FMT, 'p')
+"  echom '=> "' . submatch(1) . '"'
+"  echom line
+"  "let matched = substitute(line, CAPTURE_FMT, line, '')
+"  "echom matched
+"
+"  let i = 0
+"  while submatch(i) != ""
+"    echom '' . i . submatch(i)
+"    let i = i + 1
+"  endwhile
+"  echo '=>' . submatch(0)
+"  let pat = submatch(1)
+"  while pat != ""
+"    call setline(line('.') + i, matched)
+"    let i = i + 1
+"    matched = submatch(i)
+"  endwhile
+" let  = substitute(oldline, ASSIGN_LINE, FORMATTER, "")
+" :s/\(\([ ]*\)\(.*\)(\(.*\)).*{.*\)/\1\r\2\ \ Debug.log(DEBUG_DEFAULT, "\3(%d)",\ \4);/
+":endfunction
+
+":command InsertDebug :normal oDebug.log(DEBUG_DEFAULT, "");<ESC>
+
+"function AlignAssignments()
+"    " Patterns needed to locate assignment operators...
+"    let ASSIGN_OP   = '[-+*/%|&]\?=\@<!=[=~]\@!'
+"    let ASSIGN_LINE = '^\(.\{-}\)\s*\(' . ASSIGN_OP . '\)'
+"
+"    " Locate block of code to be considered (same indentation, no blanks)
+"    let indent_pat = '^' . matchstr(getline('.'), '^\s*') . '\S'
+"    let firstline  = search('^\%('. indent_pat . '\)\@!','bnW') + 1
+"    let lastline   = search('^\%('. indent_pat . '\)\@!', 'nW') - 1
+"    if lastline < 0
+"        let lastline = line('$')
+"    endif
+"
+"    " Find the column at which the operators should be aligned...
+
+
 "incremen each sub
 ":function Increment(s, e, rep, inc)
 ":let i = a:s | g/a:rep/s//\=i/ | let i = i + a:inc

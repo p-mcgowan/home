@@ -35,63 +35,96 @@ alias ..='cd .. && ls --color=auto'
 alias ...='cd ../.. && ls --color=auto'
 alias ....='cd ../../.. && ls --color=auto'
 
-goto() {
-  declare -A locations=(
-    [googler]=~/source/googler/
-    [extensions]=~/.local/share/gnome-shell/extensions/
-    [port]=~/source/p-mcgowan/portfolio/
-    [if]=~/source/ifarsh
-    [ib]=~/source/isarbits
-    [acr]=~/source/acrontum
-    [dsd]=~/source/acrontum/bmw/dsd
-    [aos]=~/source/acrontum/bmw/aos/aos2
-    [dsdc]=~/source/acrontum/bmw/dsd/config
-    [gen]=~/source/acrontum/open-source
-    [bbox]=~/source/acrontum/blue-box
-    [hc]=~/source/hc
-    [work]=~/work
-  )
+declare -A GOTO_LOCATIONS=(
+  [acr]=~/source/acrontum
+  [aos]=~/source/acrontum/bmw/aos/aos2
+  [bbox]=~/source/acrontum/blue-box
+  [dsd]=~/source/acrontum/bmw/dsd
+  [dsdc]=~/source/acrontum/bmw/dsd/config
+  [ext]=~/.local/share/gnome-shell/extensions/
+  [fst]=~/source/acrontum/open-source/filesystem-template
+  [gen]=~/source/acrontum/open-source
+  [os]=~/source/acrontum/open-source
+  [moxy]=~/source/acrontum/open-source/moxy
+  [googler]=~/source/googler/
+  [hc]=~/source/hc
+  [port]=~/source/p-mcgowan/portfolio/
+  [pg]=~/source/p-mcgowan/playground/
+)
 
+goto() {
   if [ -z "$1" ]; then
-    for key in "${!locations[@]}"; do
-      echo "$key => ${locations[$key]}"
-    done
+    {
+      for key in "${!GOTO_LOCATIONS[@]}"; do
+        echo -e "$key => ${GOTO_LOCATIONS[$key]}"
+      done
+    } | sort -k3 |column -t
     return 0
   fi
 
   local quiet=
   local target=
   local check=
+  local configured=
 
   while [ -n "$1" ]; do
     case $1 in
       -q) quiet=true ;;
       -c) check=true ;;
+      -a) GOTO_LOCATIONS[$2]=$3; shift 2; configured=true; complete -W "$(goto |awk '{print $1}')" goto;;
       *) target="$1" ;;
     esac
     shift
   done
 
   if [ -z "$target" ]; then
-    echo "No target specified"
+    if [ -n "$configured" ]; then
+      return 0
+    fi
+    echo >&2 "No target specified"
     return 1
   fi
 
-  if [ -z "${locations[$target]}" ]; then
-    [ -z "$quiet" ] && [ -z "$check" ] && echo "Could not find $target"
+  if [ -z "${GOTO_LOCATIONS[$target]}" ]; then
+    [ -z "$quiet" ] && [ -z "$check" ] && echo >&2 "Could not find $target"
     return 1
   fi
 
   if [ -n "$check" ]; then
-    echo ${locations[$target]}
+    echo ${GOTO_LOCATIONS[$target]}
     return 0
   fi
 
-  eval cd ${locations[$target]}
+  eval cd ${GOTO_LOCATIONS[$target]}
   [ -z "$quiet" ] && ls
   return 0
 }
+complete -W "$(goto |awk '{print $1}')" goto
 
+project-root() {
+  targets=('package.json' 'build.gradle' 'requirements.txt' 'Dockerfile')
+
+  initial="$PWD"
+  here="$PWD"
+
+  while [ "$prev" != "$here" ]; do
+    for target in ${targets[@]}; do
+      if [ -f $target ]; then
+        return 0;
+      fi
+    done
+
+    prev="$here"
+    cd ..
+    here="$PWD"
+  done
+
+  cd "$initial"
+
+  echo >&2 "No project files above"
+}
+
+# goto -a something ${HOME}/source/p-mcgowan/something
 
 ## Programs
 
@@ -115,15 +148,15 @@ alias minecraft='java -jar ~/.minecraft/Minecraft.jar &>/dev/null &'
 alias forge='cd .minecraft; java -jar ~/.minecraft/Minecraft.jar &>/dev/null &'
 alias servercraft='java -jar -Xmx1024M -Xms1024M -jar minecraft_server.1.6.4.jar nogui'
 alias brave='brave-browser &> /tmp/brave.log &'
-vlc() {
-  args="$*"
-  if [[ "$*" =~ \-t\ ?([0-9]{1,2}(:[0-9]{1,2})?(:[0-9]{1,2})?) ]]; then
-    seconds=$(echo ${BASH_REMATCH[1]} |awk '{n=split($1,A,":"); print A[n]+60*A[n-1]+60*60*A[n-2]}')
-    args="--start-time=$seconds ${args/${BASH_REMATCH[0]}/}"
-  fi
-
-  command vlc $args &>/dev/null &
-}
+#vlc() {
+#  args="$*"
+#  if [[ "$*" =~ \-t\ ?([0-9]{1,2}(:[0-9]{1,2})?(:[0-9]{1,2})?) ]]; then
+#    seconds=$(echo ${BASH_REMATCH[1]} |awk '{n=split($1,A,":"); print A[n]+60*A[n-1]+60*60*A[n-2]}')
+#    args="--start-time=$seconds ${args/${BASH_REMATCH[0]}/}"
+#  fi
+#
+#  command vlc $args &>/dev/null &
+#}
 
 firefox() { command firefox "$@" &>/tmp/firefox.log & }
 skype() { command skypeforlinux "$@" &>/tmp/skypeforlinux.log & }
@@ -139,6 +172,7 @@ alias tweaks='gnome-tweak-tool 2>/tmp/tweaks.log &'
 alias scli='spotifycli.py'
 alias resub='killall -9 sublime_text && sub'
 alias novim='HOME=/dev/null vim -u NONE -n'
+alias watch='watch '
 
 ## Gaming
 
@@ -176,7 +210,26 @@ spam() {
   xdotool mouseup 3; xdotool mouseup 2;
 }
 epic() {
-  node -e "data=$(curl -s https://patmcgowan.ca/v1/epic); console.table(data.reduce((a,g) => ({...a,[g.title]:{title:g.title,price:g.price.totalPrice.discountPrice,link:\`https://www.epicgames.com/store/en-US/p/\${g.productSlug?.replace(/\/.*/g,'')}\`}}),{}));"
+  data=$(curl -s https://patmcgowan.ca/v1/epic)
+
+  node -e "$(
+cat <<SCRIPT
+let data = ${data};
+console.table(
+  data
+    .reduce(
+      (a, g) =>
+        a.concat({
+          title: g.title,
+          price: g.price.totalPrice.discountPrice,
+          link: \`https://www.epicgames.com/store/en-US/p/\${g.productSlug?.replace(/\/.*/g,'')}\`,
+        }),
+      []
+    )
+    .sort((a, b) => a.price - b.price)
+);
+SCRIPT
+)"
 }
 
 ## Computer Control:
@@ -202,7 +255,9 @@ alias fuckyounumlock="xmodmap -e keycode 77 = ISO_Level3_Shift Num_Lock"
 alias mouseFucked='echo Fixing the damn thing, do not cancel this...; compiz --replace &'
 alias monitorFucked='xset dpms force off'
 alias trackpadFucked='sudo sh -c "rmmod psmouse && modprobe psmouse proto=imps"'
-alias volume='pactl -- set-sink-volume 0'
+volume() {
+  pactl -- set-sink-volume $(pactl list short sinks |awk '{printf($1); exit;}') $(echo $1/100 |bc -l)
+}
 # alias specs='inxi -Fxzd'
 alias specs='inxi -Fdflmopuxz' # -m (mem) requires root
 alias fixdisplays='xrandr --output HDMI-0 --left-of DVI-I-0 --auto'
@@ -214,17 +269,28 @@ sound() {
     -s | --set-default)
       pactl set-default-sink $(pactl list short sinks |awk '{printf($2); exit;}')
     ;;
+    -v | --set-volume)
+      shift
+      pactl -- set-sink-volume $(pactl list short sinks |awk '{printf($1); exit;}') "$@"
+    ;;
     tv)
-      pacmd set-card-profile 1 output:hdmi-stereo-extra1+input:analog-stereo
-      pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo-extra1
+      amixer set "Headphone" mute
+      amixer set "Speaker" unmute
+      # pacmd set-card-profile 1 output:hdmi-stereo-extra1+input:analog-stereo
+      # pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo-extra1
+      # pacmd set-card-profile 1 output:hdmi-stereo+input:analog-stereo
+      # pacmd set-default-sink alsa_output.pci-0000_01_00.1.hdmi-stereo-extra1 ||
+      # pacmd set-default-sink alsa_output.pci-0000_01_00.1.hdmi-stereo
     ;;
-    tv2)
-      pacmd set-card-profile 1 output:hdmi-stereo+input:analog-stereo
-      pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo
-    ;;
+    # tv2)
+    #   pacmd set-card-profile 1 output:hdmi-stereo+input:analog-stereo
+    #   pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo
+    # ;;
     hp)
-      pacmd set-card-profile 1 output:analog-stereo+input:analog-stereo
-      pacmd set-default-sink alsa_output.pci-0000_00_1f.3.analog-stereo
+      amixer set "Speaker" mute
+      amixer set "Headphone" unmute
+      # pacmd set-card-profile 1 output:analog-stereo+input:analog-stereo
+      # pacmd set-default-sink alsa_output.pci-0000_00_1f.3.analog-stereo
     ;;
     *)
       gnome-control-center sound &
@@ -363,6 +429,7 @@ gbranchprune() {
   #   git branch -d $branch;
   # done
 }
+alias amend='git add -A && git commit --amend '
 alias gmerge='git merge $(git remote)/$(git rev-parse --abbrev-ref HEAD)'
 # alias stash='echo "git stash --include-untracked"'
 showstash() {
@@ -395,19 +462,45 @@ stash() {
 
 alias local-branch-compare='git branch -l |sed "s/\*\?\ \+//g" |while read branch; do echo $branch; git rev-list --left-right --count $branch...remotes/origin/$branch 2>/dev/null || echo; done'
 
+git-clone-folders() {
+  if [ $# -lt 3 ]; then
+    echo "usage: git-clone-folders <output> <repo> <paths> [...paths]"
+    return 1
+  fi
+
+  local outdir="$1"
+  shift
+  local origin="$1"
+  shift
+  local files=($@)
+
+  mkdir -p "$outdir"
+  cd "$outdir"
+  git init
+  git remote add origin "$origin"
+  git config core.sparseCheckout true
+  printf '%s\n' "${files[@]}" >.git/info/sparse-checkout
+
+  main=$(git remote show $origin | sed -n '/HEAD branch/s/.*: //p')
+  git fetch origin $main
+  git merge origin/$main
+}
+
 glog() {
   local arg1="$1"
   shift
   case $arg1 in
     -n | --network | n)
-      git log --all --decorate --oneline --graph --date=format:"%Y-%m-%d %H:%M" --pretty=format:"%C(auto)%h %C(dim)%ad | %C(auto)[%an] %s %d" $* ;;
+      git log --all --decorate --oneline --graph --date=format:"%Y-%m-%d %H:%M" --pretty=format:"%C(auto)%h %C(dim)%ad | %C(auto)[%an] %s %d" "$@" ;;
     -s | --short | s)
-      git log --pretty=format:'%C(auto)%h %ad | %s%d [%an]' --color --graph --date=short $* ;;
+      git log --date=format:"%Y-%m-%d %H:%M" --pretty=format:"%C(auto)%h %C(dim)%ad | %C(auto)[%an] %s %d" --color --graph "$@" ;;
     --simple)
-      git log --format="%Cgreen%h%Creset [%an] %s%C(dim)%+b%Creset" $*;;
+      git log --format="%Cgreen%h%Creset [%an] %s%C(dim)%+b%Creset" $* ;;
     -d | --diff | d)
-      git log -p $* ;;
-    -f | --from | f)
+      git log -p "$@" ;;
+    -f | --files | f)
+      git log --oneline --stat "$@" ;;
+    --from)
       shaOrDate="$2"
       if [[ "$shaOrDate" =~ ^[[:alnum:]]{40}$ ]] || [[ $shaOrDate =~ ^[[:alnum:]]{6}$ ]]; then
         cmd="$shaOrDate^..$(git rev-parse HEAD)"
@@ -420,7 +513,7 @@ glog() {
         echo "Expecting SHA hash (6 or 40 chars) or date YYYY-MM-DD"
         return 1
       fi
-      git log $cmd --date=short --pretty=format:'%h %ad %an | %s%d'
+      git log $cmd --date=short --pretty=format:'%h %ad %an | %s%d' "$@"
     ;;
     # -m | --medium | m)
     #   git log -n1 --color --pretty=format:"%C(auto)%h %C(dim)%ad %C(auto)%s%d" --date=format:"%Y-%m-%d %H:%M"
@@ -428,7 +521,7 @@ glog() {
     -h | --help | h)
       echo "glog [-s,--short | -d,--diff | -n,--network | -h,--help] [-f,--from [SHA or date]]";;
     *)
-      git log -p --stat --graph;;
+      git log --stat --graph $arg1 "$@";;
   esac
 }
 
@@ -535,7 +628,17 @@ ismerged() {
 
 ## Misc
 
-alias clip='xclip -sel clip'
+# some_command |colour
+alias nocolour="sed -e 's/\x1b\[[0-9;]*m//g'"
+# some_command |logfile /tmp/log.txt
+alias logfile="tee /dev/tty |nocolour >"
+alias clip='xsel --input --clipboard'
+one-liner() {
+  while read line; do
+    echo -ne "\033[2K\r$line"
+  done
+}
+
 pedit() {
   img=/tmp/$(date +%s).png
   echo "trying to write and edit $img"
@@ -587,9 +690,9 @@ imout() {
 ~ _/\
 ~   /'
 }
-alias zoidberg='echo "(V) (°,,,,°) (V)" |tee /dev/tty |xclip'
-alias throwit='echo "(╯°□°）╯︵ ┻━┻" |tee /dev/tty |xclip'
-alias shrug='echo "¯\_(ツ)_/¯" |tee /dev/tty |xclip'
+alias zoidberg='echo "(V) (°,,,,°) (V)" |tee /dev/tty |xsel --input'
+alias throwit='echo "(╯°□°）╯︵ ┻━┻" |tee /dev/tty |xsel --input'
+alias shrug='echo "¯\_(ツ)_/¯" |tee /dev/tty |xsel --input'
 ducksay() {
   echo '
  ._(`)<   "'$*'"
@@ -630,6 +733,7 @@ http.createServer(async (i, o, n) => {
 
   if (fExists && fs.statSync(file).isFile()) {
     o.setHeader('Content-Type', conType(file));
+    o.setHeader('Access-Control-Allow-Origin', '*');
     o.writeHead(200);
     fs.createReadStream(file).pipe(o);
   } else {
@@ -641,6 +745,7 @@ http.createServer(async (i, o, n) => {
           .catch(() => false);
 
         o.setHeader('Content-Type', 'text/html');
+        o.setHeader('Access-Control-Allow-Origin', '*');
         o.writeHead(200);
         fs.createReadStream(index).pipe(o);
         return;
@@ -653,13 +758,14 @@ http.createServer(async (i, o, n) => {
 
       if (htmlFileExists) {
         o.setHeader('Content-Type', 'text/html');
+        o.setHeader('Access-Control-Allow-Origin', '*');
         o.writeHead(200);
         fs.createReadStream(fileWithHtml).pipe(o);
         return;
       }
     }
 
-    o.writeHead(404);
+    o.writeHead(404, { headers: corsHeaders });
     o.end();
   }
 }).listen($port, () => console.log('up on $port'));
@@ -702,7 +808,9 @@ watchdo() {
 
 ## Work
 
-alias gsts='sub $(git status --short |awk '"'"'{ print($2); }'"'"')'
+gsts()  {
+  sub $(git status --short "$@" |awk '{ print($2); }')
+}
 sprt() {
   tmux at -t 'spotify' 2>/dev/null || \
   tmux new-session -t 'spotify' \; \
@@ -712,21 +820,26 @@ acrvpn() {
   tmux at -t 'acrvpn' 2>/dev/null || \
   tmux new-session -t 'acrvpn' \; send-keys "sudo ~/work/vpn" C-m \;
 }
+recompose() {
+  if [ ! -f docker-compose.yml ]; then
+    echo no compose here
+    return 1
+  fi
+
+  docker compose up -d --build --force-recreate $@
+}
 compose-logs() {
   local composeFile=${1:-apps.compose.yml}
   if [ -n "$TMUX" ]; then
-    goto dsdc && docker-compose -f $composeFile logs -f --tail=200 | grep -v 'admin/health\|OPTIONS'
+    goto dsdc && docker compose -f $composeFile logs -f --tail=200 | grep -v 'admin/health\|OPTIONS'
   else
     tmux at -t 'compose-logs' 2>/dev/null || {
       tmux new-session -t 'compose-logs' \; \
-        send-keys "goto dsdc && docker-compose -f $composeFile logs -f --tail=200 | grep -v 'admin/health\|OPTIONS'" C-m \;
+        send-keys "goto dsdc && docker compose -f $composeFile logs -f --tail=200 | grep -v 'admin/health\|OPTIONS'" C-m \;
     }
   fi
 }
 alias wh='watcherHelper'
-
-# alias dsl="awk -F'=' 'NR == 2 { printf(gensub(/\"/, \"\", \"g\", \$2)); }' ~/work/notes |xclip && echo 'middle clickable'"
-# alias qnumber="awk -F'=' '\$1 ~ /qnumber/ { printf(\$2); }' ~/work/notes | tee /dev/tty |xclip && echo -e \"\nmiddle clickable\""
 
 kcc() {
   [ ! -t 1 ]
@@ -736,7 +849,7 @@ kcc() {
     if ($1 == "*" && isTTY) {
       printf("\033[0;1m%s  %s  %s\033[0;0m\n", $2, $3, $NF);
     } else {
-       printf("%s  %s  %s\n", $2, $3, $NF);
+      printf("%s  %s  %s\n", $2, $3, $NF);
     }
   }' |column -t || {
     if [[ "$1" == -p ]]; then
@@ -747,7 +860,7 @@ kcc() {
       if [ -n "$2" ]; then
         local namespace="--namespace $2"
       fi
-      kubectl config use-context "$1" $2
+      kubectl config use-context "$1" $2 1>&2
     fi
   }
 }
@@ -823,8 +936,9 @@ hours() {
   fi
   echo -ne "${timedata}\033[0;0m\n"
 
-  for projectsDir in dsd gen bbox aos; do
-    goto $projectsDir -q
+  # for projectsDir in dsd gen bbox aos; do
+  for projectsDir in aos ii ia; do
+    goto $projectsDir -q || continue
     for project in $(find $PWD -maxdepth 4 -type d -name .git 2>/dev/null); do
       if [ -f $(dirname $project)/../.gitmodules ] && grep -q $(basename $(dirname $project)) $(dirname $project)/../.gitmodules; then
         continue
@@ -941,15 +1055,23 @@ client() {
   sed -i "s/process.env.NODE_ENV = 'development';/process.env.NODE_ENV = process.env.NODE_ENV || 'development';process.env.REACT_APP_ENV = process.env.NODE_ENV;/" node_modules/react-scripts/scripts/start.js
   sed -i "s/require.resolve('react-dev-utils\/webpackHotDevClient'),/null,/" node_modules/react-scripts/config/webpack.config.js
   sed -i "s/.*'%cDownload the React DevTools '/\/\//" node_modules/react-dom/**/*.js
-  # sed -i "s/process.env.BABEL_ENV = 'development';/process.env.BABEL_ENV = process.env.BABEL_ENV || 'development';/" node_modules/react-scripts/scripts/start.js
-  # line=$(sed -n '/socket.installHandlers(this.listeningApp, {/=' node_modules/webpack-dev-server/lib/Server.js)
+  # sed -i "s/process.env.BABEL_ENV = 'development';/process.edsdBABEL_ENV = process.env.BABEL_ENV || 'development';/" node_modules/react-scripts/scripts/start.js
+  # line=$(sed -n '/socket.installHandlers(this.listenidsdpp, {/=' node_modules/webpack-dev-server/lib/Server.js)
   # sed -i -e "$((line++))s|^\ \ |//|" -e "$((line++))s|^\ \ |//|" -e "$((line++))s|^\ \ |//|" node_modules/webpack-dev-server/lib/Server.js
   NODE_ENV=${NODE_ENV:-development} npm start
 }
+alias teams="~/tmp/teams-unpacked/start.sh"
+
 morning() {
   case $1 in
+    lbsi)
+      google -b outlook -b "bmw mail" -b ghme -b "lbsi hub" -b "lbsi automize github"
+      psub acr
+      teams
+      pmux ia
+    ;;
     aos)
-      google -b outlook -b "bmw mail" -b "jira sprint progress board view" -b ghme -b "AOS hub" -b "aos bitbucket"
+      google -b outlook -b "bmw mail" -b "jira sprint progress board view" -b ghme -b "AOS HUB" -b "aos bitbucket"
       psub acr
       teams
       pmux aos
@@ -1001,6 +1123,8 @@ psub() {
   esac
 }
 pmux() {
+  # vpnRunning=$(tmux list-session |grep -q acrvpn && echo 'yes')
+
   case $1 in
     '') [ -f *.sublime-project ] && sub *.sublime-project || echo 'no sublime-project here' ;;
     dsd)
@@ -1012,11 +1136,20 @@ pmux() {
         # select-pane -t1 \; \
         # send-keys -t1 "pew pew" C-m \;
     ;;
+    ia | lbsi)
+      goto ia;
+
+      tmux new-session \; \
+        split-window -v \; \
+        send-keys -t0 'goto id' C-m "docker compose up -d --build --force-recreate $compose_apps" C-m 'docker compose logs -f' C-m \; \
+        send-keys -t1 'goto id' C-m  'gst' C-m \; \
+        select-pane -t1 \;
+    ;;
     aos)
       goto aos;
 
       compose_apps=""
-      # if [ -f docker/docker-compose.yml ]; then
+      # if [ -f docker/docker compose.yml ]; then
       #   compose_apps="$(awk -F '[ :]+' '
       #     /^services/ {
       #       reading_services = 1;
@@ -1029,16 +1162,15 @@ pmux() {
       #       if (reading_services && $2 != "aos2-vehicle-backend") {
       #         printf("%s ", $2);
       #       }
-      #     }' docker/docker-compose.yml)"
+      #     }' docker/docker compose.yml)"
       # fi
+      # if [ -z "$vpnRunning" ]; then
+      #   cmd=
 
       tmux new-session \; \
         split-window -v \; \
-        split-window -h \; \
-        send-keys -t0 'zgoto ad' C-m "docker-compose up -d --build --force-recreate $compose_apps" C-m 'docker-compose logs -f' C-m \; \
-        send-keys -t1 'zgoto af' C-m 'zfrontend' C-m \; \
-        send-keys -t2 'gst' C-m \; \
-        select-pane -t2 \;
+        send-keys -t0 'goto ad' C-m "docker compose up -d --build --force-recreate $compose_apps" C-m 'docker compose logs -f' C-m \; \
+        send-keys -t1 'goto ad' C-m 'gst' C-m \;
     ;;
     *)
       local target=$(goto -c $1)
@@ -1066,7 +1198,7 @@ vctmux() {
   tmux new-session \; \
   split-window -h \; \
   split-window -t 0 -v \; \
-  send-keys -t0 'cd docker/dev/ && docker-compose -f docker-compose-local-fs.yml -p v2c up -d --build --remove-orphans && cd ../../' C-m \; \
+  send-keys -t0 'cd docker/dev/ && docker compose -f docker compose-local-fs.yml -p v2c up -d --build --remove-orphans && cd ../../' C-m \; \
   send-keys -t1 'cd backend/' C-m \; \
   select-pane -t2 \;
 }
@@ -1074,7 +1206,7 @@ pstmux() {
   tmux new-session \; \
   split-window -h \; \
   split-window -t 0 -v \; \
-  send-keys -t0 'cd client/; cd ../../docker/dev/ && docker-compose -f docker-compose-local-fs.yml -p ps up -d --build --remove-orphans && cd -' C-m \; \
+  send-keys -t0 'cd client/; cd ../../docker/dev/ && docker compose -f docker compose-local-fs.yml -p ps up -d --build --remove-orphans && cd -' C-m \; \
   send-keys -t0 'nvm use lts/dubnium ; client' C-m \; \
   send-keys -t1 'cd backend/' C-m \; \
   send-keys -t1 'nvm use lts/dubnium ; backend' C-m \; \
@@ -1083,13 +1215,13 @@ pstmux() {
 gstmux() {
   tmux new-session \; \
   split-window -h \; \
-  send-keys -t0 'cd infrastructure/docker/ && docker-compose up -d --build --remove-orphans && cd ../../' C-m \; \
+  send-keys -t0 'cd infrastructure/docker/ && docker compose up -d --build --remove-orphans && cd ../../' C-m \; \
   send-keys -t1 'cd backend/' C-m \;
 }
 gtmux() {
   tmux new-session \; \
   split-window -h \; \
-  send-keys -t0 'gst' C-m \; \
+  send-keys -t0 "gst" C-m \; \
   send-keys -t1 "gdiff $@" C-m \;
 }
 mtmux() {
@@ -1189,7 +1321,31 @@ defaults: container=$container, cmd=$cmd
 }
 
 lint() {
-  npx tslint --config ~/.tslint.js $*
+  (
+    project-root
+    if [ ! -f package.json ]; then
+      echo >&2 "no package json here"
+
+      return 1
+    fi
+
+    if grep -q '"lint:fix"' package.json; then
+      npm run lint:fix
+    elif grep -q '"lint"' package.json; then
+      npm run lint -- --fix
+    elif grep -q '"fmt"' package.json; then
+      npm run fmt
+    elif grep -q '"format"' package.json; then
+      npm run format
+    else
+      echo 'not sure what to run'
+      npm run
+
+      return 1
+    fi
+
+    return $?
+  )
 }
 
 spindex() {
@@ -1206,100 +1362,6 @@ spindex() {
       select-layout even-vertical
   }
 }
-
-
-extglob=$(shopt extglob |grep 'off')
-shopt -s extglob
-
-zgoto() {
-  shopt -s extglob
-
-  local DSD_ROOT=${HOME}/source/acrontum/bmw/dsd
-  local BOX_ROOT=${HOME}/source/acrontum/blue-box
-  local AOS_ROOT=${HOME}/source/acrontum/bmw/aos/aos2
-
-  local backend=
-  local frontend=
-  local swagger=
-  case "$1" in
-    aos | aos2) path=${AOS_ROOT}/ ;;
-    aosb | ab) path=${AOS_ROOT}/aos2-main-backend ;;
-    aosf | af) path=${AOS_ROOT}/aos2-frontend ;;
-    aosd | ad) path=${AOS_ROOT}/docker ;;
-    aoss | as) path=${AOS_ROOT}/spec/aos2-main-backend-spec ;;
-
-    ?(dsd-)admin-panel-backend) path=${DSD_ROOT}/admin-panel/admin-panel-backend ;;
-    ?(dsd-)admin-panel) path=${DSD_ROOT}/admin-panel/admin-panel ;;
-    ?(dsd-)authentication) path=${DSD_ROOT}/authentication/authentication ;;
-    ?(dsd-)backend-main) path=${DSD_ROOT}/frontdesk/backend_main ;;
-    ?(dsd-)backend_main) path=${DSD_ROOT}/frontdesk/backend_main ;;
-    ?(dsd-)frontend) path=${DSD_ROOT}/frontdesk/frontend ;;
-    ?(dsd-)battery-service) path=${DSD_ROOT}/battery-service/battery-service ;;
-    ?(dsd-)car-park-backend) path=${DSD_ROOT}/car-park/car-park-backend ;;
-    ?(dsd-)check-control-messages) path=${DSD_ROOT}/check-control-messages/check-control-messages ;;
-    ?(dsd-)condition-based-service) path=${DSD_ROOT}/condition-based-service/condition-based-service ;;
-    ?(dsd-)fuel-system) path=${DSD_ROOT}/fuel-system/fuel-system ;;
-    ?(dsd-)historical-data) path=${DSD_ROOT}/historical-data/historical-data ;;
-    ?(dsd-)known-issue-service) path=${DSD_ROOT}/known-issue-service/known-issue-service ;;
-    ?(dsd-)market-tool-service) path=${DSD_ROOT}/market-tool-service/market-tool-service ;;
-    ?(dsd-)monitoring-service) path=${DSD_ROOT}/monitoring-service/monitoring-service ;;
-    ?(dsd-)recommendations-service) path=${DSD_ROOT}/recommendations-service/recommendations-service ;;
-    ?(dsd-)reporting) path=${DSD_ROOT}/reporting/reporting ;;
-    ?(dsd-)remote-services) path=${DSD_ROOT}/remote-services/remote-services ;;
-    ?(dsd-)scheduler-service) path=${DSD_ROOT}/scheduler-service/scheduler-service ;;
-    ?(dsd-)service-partner) path=${DSD_ROOT}/service-partner/service-partner ;;
-    ?(dsd-)sim-card) path=${DSD_ROOT}/sim_card/sim_card ;;
-    ?(dsd-)sim_card) path=${DSD_ROOT}/sim_card/sim_card ;;
-    ?(dsd-)technical-actions) path=${DSD_ROOT}/technical-actions/technical-actions ;;
-    ?(dsd-)technical-admin-panel-backend) path=${DSD_ROOT}/technical-admin-panel/technical-admin-panel-backend ;;
-    ?(dsd-)technical-admin-panel) path=${DSD_ROOT}/technical-admin-panel/technical-admin-panel ;;
-    ?(dsd-)tires-machine-consumer) path=${DSD_ROOT}/tires-machine-consumer/tires-machine-consumer ;;
-    ?(dsd-)tires-machine-receiver) path=${DSD_ROOT}/tires-machine-receiver/tires-machine-receiver ;;
-    ?(dsd-)tires-service) path=${DSD_ROOT}/tires-service/tires-service ;;
-    ?(dsd-)user-management) path=${DSD_ROOT}/user-management/user-management ;;
-    dsd) path=${DSD_ROOT}/ ;;
-    dsdc) path=${DSD_ROOT}/config ;;
-    pg) path=${DSD_ROOT}/config/postgres/backups ;;
-
-    bbox) path=${BOX_ROOT}/ ;;
-    auth | msa | ms-auth) path=${BOX_ROOT}/ms-auth ;;
-    bbb | blue-box-backend) path=${BOX_ROOT}/blue-box-backend ;;
-    bbf | blue-box-frontend) path=${BOX_ROOT}/blue-box-frontend ;;
-    tdw | tire-data-worker) path=${BOX_ROOT}/tire-data-worker ;;
-    tmx | tire-machine-consumer) path=${BOX_ROOT}/tire-machine-consumer ;;
-    *) echo "path '$1' not found" && return 1 ;;
-  esac
-
-  case "$2" in
-    b | be | '');;
-    f | fe)
-      case $path in
-        ${DSD_ROOT}/admin-panel/admin-panel-backend | ${DSD_ROOT}/technical-admin-panel/technical-admin-panel-backend)
-          path=${path/-backend/}
-        ;;
-        ${DSD_ROOT}/frontdesk/backend_main)
-          path=${path/backend_main/frontend}
-        ;;
-        *) echo FE not found && return 1 ;;
-      esac
-    ;;
-    s | sw)
-      if [ -d $path/../*swagger ]; then
-        path=$(realpath $path/../*swagger)
-      elif [ -d $path/../*_d ]; then
-        path=$(realpath $path/../*_d)
-      else
-        echo swagger not found && return 1
-      fi
-    ;;
-    *) echo '[b, be, f, fe, s, sw]' && return 1 ;;
-  esac
-
-  cd $path
-
-}
-[ -n "$extglob" ] && shopt -u extglob
-
 
 zs() {
   local usage="zs [b | f | s]
@@ -1412,4 +1474,7 @@ b64() {
 
 gen() {
   npm run generate:nodegen --yes "$@"
+}
+difftool() {
+  git mergetool --tool=vimdiff
 }
