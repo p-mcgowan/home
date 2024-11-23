@@ -668,7 +668,7 @@ alias top='top -d2'
 alias chromelog='tail -f ~/.config/google-chrome/chrome_debug.log'
 alias pirate_search='node ~/source/programming/node/pirateSearch/pirate.js'
 alias streams='google -w patmcgowan.ca/apps/stream'
-alias vantime='date -d"9 hours ago" +"%y.%m.%d %H:%M"'
+alias vantime='TZ=America/Vancouver date +"%y.%m.%d %H:%M"'
 alias own='sudo chown $(id -u):$(id -g)'
 alias cdtemp='cd $(mktemp -d)'
 crlfToLf() {
