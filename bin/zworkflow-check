@@ -1,0 +1,93 @@
+#!/bin/bash
+
+target="$1"
+
+if [ -z "$target" ]; then
+  echo >&2 "missing file. Usage: $(basename $0) <WORKFLOW>"
+  exit 1
+fi
+
+target_path=$(realpath $target)
+if ! [ -f "$target_path" ]; then
+  echo >&2 "file '$target_path' not found or invalid. Usage: $(basename $0) <WORKFLOW>"
+  exit 1
+fi
+
+echo -e "\n\n\033[1;36m$target\033[0;0m"
+
+dockerfile=$(cat <<GOLINT
+FROM golang
+
+RUN go install github.com/rhysd/actionlint/cmd/actionlint@latest
+
+CMD ["actionlint", "/tmp/workflow.yml"]
+GOLINT
+)
+
+echo -e "\033[33;1minstalling\033[0;0m"
+# https://github.com/moby/buildkit/issues/1186
+DOCKER_BUILDKIT=0 docker build --tag go-action-lint -f- . <<<"$dockerfile" 1>/dev/null
+#docker build --tag go-action-lint -f- . <<<"$dockerfile" 1>/dev/null
+
+echo -e "\033[33;1mlinting\033[0;0m"
+docker run --rm --name go-action-lint -v $target_path:/tmp/workflow.yml go-action-lint
+
+echo -e "\033[33;1mdone\033[0;0m"
+
+
+exit 0
+
+# v2 - throws all kinds of errors
+
+#!/bin/bash
+
+target="$1"
+
+if [ -z "$target" ]; then
+  echo >&2 "missing file. Usage: $(basename $0) <WORKFLOW>"
+  exit 1
+fi
+
+target_path=$(realpath $target)
+if ! [ -f "$target_path" ]; then
+  echo >&2 "file '$target_path' not found or invalid. Usage: $(basename $0) <WORKFLOW>"
+  exit 1
+fi
+
+target_dir=$(dirname $target_path)
+target_file=$(basename $target_path)
+echo $target
+
+# mount targetDir, tell
+
+dockerfile=$(cat <<GOLINT
+FROM golang
+
+RUN go install github.com/rhysd/actionlint/cmd/actionlint@latest
+
+WORKDIR /opt
+
+RUN git init
+RUN mkdir -p .github/workflows
+RUN echo -n > .github/actionlint.yml "self-hosted-runner:\n  labels: [atc-ubuntu-latest]\n"
+RUN cat .github/actionlint.yml
+
+CMD ["actionlint", "/tmp/.github/workflows/workflow.yml"]
+GOLINT
+)
+
+echo -e "\033[33;1minstalling\033[0;0m"
+# https://github.com/moby/buildkit/issues/1186
+DOCKER_BUILDKIT=0 docker build --tag go-action-lint -f- . <<<"$dockerfile"
+
+echo -e "\033[33;1mlinting\033[0;0m"
+docker run \
+  --rm \
+  --name go-action-lint \
+  -v $target_dir:/tmp/workflows \
+  go-action-lint \
+  sh -c "cp -r /tmp/workflows/* /opt/.github/workflows/ && actionlint .github/workflows/$target_file"
+
+echo -e "\033[33;1mdone\033[0;0m"
+
+

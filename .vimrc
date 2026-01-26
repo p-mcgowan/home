@@ -36,7 +36,9 @@ filetype on
 filetype plugin on
 filetype plugin indent on
 syntax on
-au BufNewFile,BufRead *.ts set filetype=typescript
+
+autocmd BufNewFile,BufRead *.ts set filetype=typescript
+autocmd VimEnter COMMIT_EDITMSG :1
 
 if has('mouse')
   set mouse=a
@@ -53,6 +55,7 @@ function! StripTrailingWhitespace()
   %s/\s\+$//e
 endfunction
 autocmd BufWritePre * call StripTrailingWhitespace()
+
 " Jump to same line as when closed
 if has("autocmd")
   au BufReadPost * if line("'\"") > 0 && line("'\"") <= line("$")

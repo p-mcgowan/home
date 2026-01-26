@@ -3,6 +3,7 @@
 mkdir -p /tmp/mdp
 cd /tmp/mdp
 
+# docker build --no-cache --tag markdown-preview -f - . <<'EOF'
 docker build --tag markdown-preview -f - . <<'EOF'
 FROM python
 
@@ -33,4 +34,4 @@ if [ -n "$1" ]; then
   shift
 fi
 
-docker run -d --rm -v /tmp/grip-cache:/root/.grip/ -v $PWD:/opt $file --network host --name markdown-preview markdown-preview
+docker run -d --rm -v /tmp/grip-cache:/root/.grip/ -v $PWD:/opt $file --network host --name markdown-preview-6419 markdown-preview

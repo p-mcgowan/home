@@ -1,5 +1,58 @@
 ## Common:
 
+# https://www.youtube.com/watch?v=2A4bs40scSo
+tarchive() {
+  tar -czvf - ./ |tee >(ssh linode tar -xzvf-) >(ssh seedbox tar -xzvf -)
+}
+less-with-err-log() {
+  local cmd="$@"
+  local errfile=/tmp/errs.txt
+
+  $cmd > >(less) 2> >(tee $errfile)
+}
+
+
+ng-clear() {
+  ng_builder=node_modules/@angular/build/src/builders/application/index.js
+
+  if ! [ -f $ng_builder ]; then
+    echo >&2 'no node mods ng builder'
+    return 1
+  fi
+
+  if ! grep -q 'clearScreen: normalizedOptions.clearScreen,' $ng_builder; then
+    echo >&2 "couldnt find thing to replace in $ng_builder"
+    return 1
+  fi
+
+  sed -i 's|clearScreen: normalizedOptions.clearScreen,|clearScreen: true,|g' $ng_builder
+}
+ng-migrate() {
+  (
+  local target=$(realpath ${1:-$PWD})
+  project-root
+  local path=$(realpath --relative-to=$PWD $target)
+
+  local ans
+  read -p "migrate (eg npx ng generate @angular/core:control-flow --path $path) [Y/n]? " ans
+  if [ "$ans" != '' ] && [ "${ans,,}" != 'y' ]; then
+    return 1;
+  fi
+
+  set -x
+  npx ng generate @angular/core:control-flow --path $path --defaults
+  npx ng generate @angular/core:self-closing-tag --path $path --defaults
+  npx ng generate @angular/core:signal-queries-migration --path $path --defaults
+  npx ng generate @angular/core:signal-input-migration --path $path --defaults
+  npx ng generate @angular/core:output-migration --path $path --defaults
+  # npx ng generate @angular/core:ngclass-to-class --path $path --defaults
+  # npx ng generate @angular/core:ngstyle-to-style --path $path --defaults
+  # npx ng generate @angular/core:common-to-standalone --path $path --defaults
+  set +x
+  )
+}
+
+
 alias eali='sub ~/.bash_aliases &>/dev/null || vim ~/.bash_aliases'
 alias sali='source ~/.bash_aliases'
 alias bashrc='source ~/.bashrc'
@@ -50,13 +103,26 @@ declare -A GOTO_LOCATIONS=(
   [hc]=~/source/hc
   [port]=~/source/p-mcgowan/portfolio/
   [pg]=~/source/p-mcgowan/playground/
+  [fstr]=~/source/acrontum/open-source/fstr/
+  [fsb]=~/source/acrontum/open-source/fstr/e2e/output/my-app/apps/backend
+  [fss]=~/source/acrontum/open-source/fstr/e2e/output/my-app/spec
+  [fsf]=~/source/acrontum/open-source/fstr/e2e/output/my-app/apps/frontend
+  [fsd]=~/source/acrontum/open-source/fstr/e2e/output/my-app/docker
 )
 
 goto() {
   if [ -z "$1" ]; then
     {
+      local -A GOTO_PATHS
       for key in "${!GOTO_LOCATIONS[@]}"; do
-        echo -e "$key => ${GOTO_LOCATIONS[$key]}"
+        if [ -z ${GOTO_PATHS[${GOTO_LOCATIONS[$key]}]} ]; then
+          GOTO_PATHS[${GOTO_LOCATIONS[$key]}]=$key
+        else
+          GOTO_PATHS[${GOTO_LOCATIONS[$key]}]="${GOTO_PATHS[${GOTO_LOCATIONS[$key]}]},$key"
+        fi
+      done
+      for path in "${!GOTO_PATHS[@]}"; do
+        echo -e "${GOTO_PATHS[$path]} => $path"
       done
     } | sort -k3 |column -t
     return 0
@@ -102,11 +168,13 @@ goto() {
 complete -W "$(goto |awk '{print $1}')" goto
 
 project-root() {
-  targets=('package.json' 'build.gradle' 'requirements.txt' 'Dockerfile')
+  local targets=('package.json' 'build.gradle' 'requirements.txt' 'Dockerfile')
 
-  initial="$PWD"
-  here="$PWD"
+  local initial="$PWD"
+  local here="$PWD"
 
+  local target
+  local prev
   while [ "$prev" != "$here" ]; do
     for target in ${targets[@]}; do
       if [ -f $target ]; then
@@ -130,6 +198,7 @@ project-root() {
 
 alias tmux='TERM=xterm-256color tmux'
 calc() { echo "$@" |bc -l ; }
+alias cal='ncal -C '
 alias term='gnome-terminal'
 alias conky='conky -c ~/.conkyrc &>/dev/null'
 alias conkyconf="vim /etc/conky/conky.conf"
@@ -261,6 +330,7 @@ volume() {
 # alias specs='inxi -Fxzd'
 alias specs='inxi -Fdflmopuxz' # -m (mem) requires root
 alias fixdisplays='xrandr --output HDMI-0 --left-of DVI-I-0 --auto'
+    # -s | --set-default) pactl set-default-sink $(pactl list short sinks |awk '{printf($2); exit;}') ;;
 sound() {
   case "$1" in
     -t | --test)
@@ -273,27 +343,49 @@ sound() {
       shift
       pactl -- set-sink-volume $(pactl list short sinks |awk '{printf($1); exit;}') "$@"
     ;;
-    tv)
-      amixer set "Headphone" mute
-      amixer set "Speaker" unmute
-      # pacmd set-card-profile 1 output:hdmi-stereo-extra1+input:analog-stereo
-      # pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo-extra1
-      # pacmd set-card-profile 1 output:hdmi-stereo+input:analog-stereo
-      # pacmd set-default-sink alsa_output.pci-0000_01_00.1.hdmi-stereo-extra1 ||
-      # pacmd set-default-sink alsa_output.pci-0000_01_00.1.hdmi-stereo
-    ;;
-    # tv2)
-    #   pacmd set-card-profile 1 output:hdmi-stereo+input:analog-stereo
-    #   pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo
+    # tv)
+    #   amixer set "Headphone" mute
+    #   amixer set "Speaker" unmute
+    #   # pacmd set-card-profile 1 output:hdmi-stereo-extra1+input:analog-stereo
+    #   # pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo-extra1
+    #   # pacmd set-card-profile 1 output:hdmi-stereo+input:analog-stereo
+    #   # pacmd set-default-sink alsa_output.pci-0000_01_00.1.hdmi-stereo-extra1 ||
+    #   # pacmd set-default-sink alsa_output.pci-0000_01_00.1.hdmi-stereo
     # ;;
-    hp)
-      amixer set "Speaker" mute
-      amixer set "Headphone" unmute
-      # pacmd set-card-profile 1 output:analog-stereo+input:analog-stereo
-      # pacmd set-default-sink alsa_output.pci-0000_00_1f.3.analog-stereo
+    # # tv2)
+    # #   pacmd set-card-profile 1 output:hdmi-stereo+input:analog-stereo
+    # #   pacmd set-default-sink alsa_output.pci-0000_00_1f.3.hdmi-stereo
+    # # ;;
+    # hp)
+    #   amixer set "Speaker" mute
+    #   amixer set "Headphone" unmute
+    #   # pacmd set-card-profile 1 output:analog-stereo+input:analog-stereo
+    #   # pacmd set-default-sink alsa_output.pci-0000_00_1f.3.analog-stereo
+    -v | --set-volume)
+      if [ -z $2 ]; then
+        pactl get-sink-volume $(pacmd list-sinks |awk -F': ' '/* index:/ { print $2 }') "$volume"
+        return 0
+      fi
+      volume=$2
+      if ! [[ $volume =~ '%' ]]; then
+        volume="$volume%"
+      fi
+      pactl set-sink-volume $(pacmd list-sinks |awk -F': ' '/* index:/ { print $2 }') "$volume"
     ;;
+    -t | --test) paplay $(find /usr/share/sounds/ -name '*.ogg' |head -n1) ;;
+    tv) sound hdmi ;;
+    hp) sound headphone ;;
+    '') gnome-control-center sound & ;;
     *)
-      gnome-control-center sound &
+      sink_name="$1"
+      sink_index=$(pacmd list-sinks \
+        |awk -v name="$sink_name" -F': ' '/index/ { sink_index = $2; } /active port/ { if ($0 ~ name) { print sink_index; exit 0; } }')
+      if [ "x$sink_index" != "x" ]; then
+        pacmd set-default-sink $sink_index
+      else
+        echo "no sink found matching $1"
+        pacmd list-sinks |grep 'index\|active port'
+      fi
     ;;
   esac
 }
@@ -367,11 +459,23 @@ alias gitroot='cd $(git rev-parse --show-toplevel)'
 alias gitdefault="git remote show origin 2>/dev/null |awk -F': ' '\$1 ~ /HEAD/ {print(\$2);}'"
 alias gitsetdefault="git remote set-head origin --auto || git remote set-head origin \$(git remote show origin 2>/dev/null |awk -F': ' '\$1 ~ /HEAD/ {print(\$2);}')"
 alias tags='git fetch --tags && git tag --list --sort=creatordate --format="%(refname:short) [%(creatordate:iso)] %(objectname)"'
+compare-tags() {
+  url="https://$(git remote get-url --push origin |awk -F '@' '{ sub(/:/, "/");sub(/\.git/, ""); print($2) }')/compare"
+  git fetch --tags && git tag --list --sort=creatordate --format="%(refname:short)" |awk -v compare_url="$url" 'BEGIN { before=""; } {
+    if (before == "") {
+      before = $1;
+      next;
+    }
+    printf("%s/%s...%s\n", compare_url, before, $1);
+    before = $1;
+  }'
+
+}
 gdiff() {
   args=
   files=
   for arg in $@; do
-    if [ ${arg:0:1} == '-' ]; then
+    if [ ${arg:0:1} == '-' ] || [ ${arg:0:7} == 'origin/' ]; then
       args="${args} ${arg}"
     else
       files="${files} ${arg}"
@@ -379,7 +483,15 @@ gdiff() {
   done
 
   # --word-diff=color
-  git diff $args -- ':(exclude)**/package-lock.json' ':(exclude)package-lock.json' ':(exclude)build/' ':(exclude).openapi-nodegen/' $files
+  git diff $args -- \
+    ':(exclude)**/package-lock.json' \
+    ':(exclude)package-lock.json' \
+    ':(exclude)build/' \
+    ':(exclude).openapi-nodegen/' \
+    ':(exclude)**/src/app/api/**' \
+    ':(exclude)**/coverage/**' \
+    ':(exclude)coverage/' \
+    $files
 }
 alias gst='git status'
 alias ghist='git log --follow -p --'
@@ -566,8 +678,13 @@ gpush() {
 alias gshove='git push -f --no-verify'
 
 gcam() {
-  git add -A && \
-  git commit -am "$*"
+  git add -A || return 1
+  if [ -z "$1" ]; then
+    git commit
+  else
+    git commit -am "$*"
+  fi
+  return $?
 }
 
 gcpush() {
@@ -629,7 +746,8 @@ ismerged() {
 ## Misc
 
 # some_command |colour
-alias nocolour="sed -e 's/\x1b\[[0-9;]*m//g'"
+#alias ansistrip="sed -e 's/\x1b\[[0-9;]*m//g'"
+alias nocolour="sed -r 's/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?(;[0-9]{1,2};?)?)?[mGK]//g'"
 # some_command |logfile /tmp/log.txt
 alias logfile="tee /dev/tty |nocolour >"
 alias clip='xsel --input --clipboard'
@@ -657,9 +775,10 @@ screenshot() {
   output=/tmp/$(date +%s).png
   /usr/bin/import $output && $launch $output &>/dev/null && echo $output
 }
-randomWord() { shuf -n ${1:-1} /usr/share/dict/words ; }
+random-word() { shuf -n ${1:-1} /usr/share/dict/words ; }
 random-secret() { LC_ALL=C tr -dc '[:alnum:]!@#$%^&*' < /dev/urandom | head -c${1-128}; }
 random-hex() { LC_ALL=C tr -dc '0-9a-f' < /dev/urandom | head -c${1-128}; }
+random-image() { file=$1; size="${2:-100x100}"; convert -size $size xc: +noise Random $file; }
 xxdiff() { diff <(xxd $1) <(xxd $2); }
 alias getxname='basename $(ll /proc/$(xprop _NET_WM_PID | awk "{print \$NF}")/exe | awk "{print \$NF}")'
 alias finance='google -b credit; google -b fcu'
@@ -676,6 +795,7 @@ crlfToLf() {
 }
 alias xlcsv='libreoffice --headless --convert-to csv'
 asciitree() { tree "$*" | sed 's/├/\+/g; s/─/-/g; s/└/\\/g'; }
+alias big-plans='test -f ~/Pictures/big-plans.png && xclip -selection clipboard -target image/png -i ~/Pictures/big-plans.png || echo "cant find ~/Pictures/big-plans.png"'
 
 ## Quickterm shortcut
 alias bt='bf gnome-terminal'
@@ -825,8 +945,10 @@ recompose() {
     echo no compose here
     return 1
   fi
+  #buildx :(
+  #COMPOSE_BAKE=true docker compose up -d --build --force-recreate $@
 
-  docker compose up -d --build --force-recreate $@
+  docker compose --progress=plain up -d --build --force-recreate $@
 }
 compose-logs() {
   local composeFile=${1:-apps.compose.yml}
@@ -885,6 +1007,32 @@ fast-mocha() {
   )
 }
 alias npm-update="npm i \$(npm outdated |awk 'NR > 1 { printf(\"%s@latest\n\", \$1); }')"
+npm-update-latest() {
+  files=($(npm ls \
+    |grep -v "$(awk -F'"' '/file:.*tgz/ { x[$2] = 1; } END {
+      if (length(x) == 0) {
+        print("///");
+        exit(0);
+      }
+      first = 1;
+      for (i in x) {
+        if (first) {
+          res = i;
+          first = 0;
+        } else {
+          res = res "\\|" i;
+        }
+      }
+      print(res);
+      }' package.json)" \
+    |awk '$2 ~ /@/ { lib = gensub(/@[0-9].*/, "@latest", "g", $2); print(lib); }' \
+  ))
+  for file in ${files[@]}; do
+    echo $file
+  done
+  read -p 'press enter to continue, ctrl-c to abort'
+  npm i "${files[@]}"
+}
 # JSON.stringify([].map.call(document.querySelectorAll('.opblock-summary'), e => e.innerText))
 alias routes="curl http://api.test/swagger/swagger-ui-init.js 2>/dev/null |grep '^\ \ \ \ \ \ \{1,9\}\"\/.*'"
 
@@ -1060,53 +1208,7 @@ client() {
   # sed -i -e "$((line++))s|^\ \ |//|" -e "$((line++))s|^\ \ |//|" -e "$((line++))s|^\ \ |//|" node_modules/webpack-dev-server/lib/Server.js
   NODE_ENV=${NODE_ENV:-development} npm start
 }
-alias teams="~/tmp/teams-unpacked/start.sh"
 
-morning() {
-  case $1 in
-    lbsi)
-      google -b outlook -b "bmw mail" -b ghme -b "lbsi hub" -b "lbsi automize github"
-      psub acr
-      teams
-      pmux ia
-    ;;
-    aos)
-      google -b outlook -b "bmw mail" -b "jira sprint progress board view" -b ghme -b "AOS HUB" -b "aos bitbucket"
-      psub acr
-      teams
-      pmux aos
-    ;;
-    dsd)
-      teams
-      google -b outlook -b "bmw mail" -b "jira sprint board DSD" -b ghme -b "dsd hub"
-      psub acr
-      pmux dsd
-    ;;
-    gen)
-      psub gen
-      pmux gen
-    ;;
-    hc)
-      slack
-      google -b hcgh
-      psub hc
-      pmux hc
-    ;;
-    -d | --dir)
-      shift
-      cd ${1:-./}
-      if [ ! -f *.sublime-project ]; then
-        echo could not find project $1/*.sublime-project
-        return 1
-      fi
-      sub *.sublime-project
-      ptmux
-    ;;
-    *)
-      echo "[-d dir] [dsd|gen|hc]"
-    ;;
-  esac
-}
 psub() {
   case $1 in
     '') [ -f *.sublime-project ] && sub *.sublime-project || echo 'no sublime-project here' ;;
@@ -1169,13 +1271,14 @@ pmux() {
 
       tmux new-session \; \
         split-window -v \; \
-        send-keys -t0 'goto ad' C-m "docker compose up -d --build --force-recreate $compose_apps" C-m 'docker compose logs -f' C-m \; \
+        send-keys -t0 'goto ad' C-m "recompose" C-m 'dl -f' C-m \; \
         send-keys -t1 'goto ad' C-m 'gst' C-m \;
     ;;
     *)
       local target=$(goto -c $1)
       if [ -n "$target" ]; then
         goto $1;
+        zgit
         tmux new-session \; \
           split-window -v \; \
           send-keys -t0 'docks -u' C-m \; \
@@ -1194,42 +1297,11 @@ ptmux() {
   select-layout tiled \; \
   select-pane -t2 \;
 }
-vctmux() {
-  tmux new-session \; \
-  split-window -h \; \
-  split-window -t 0 -v \; \
-  send-keys -t0 'cd docker/dev/ && docker compose -f docker compose-local-fs.yml -p v2c up -d --build --remove-orphans && cd ../../' C-m \; \
-  send-keys -t1 'cd backend/' C-m \; \
-  select-pane -t2 \;
-}
-pstmux() {
-  tmux new-session \; \
-  split-window -h \; \
-  split-window -t 0 -v \; \
-  send-keys -t0 'cd client/; cd ../../docker/dev/ && docker compose -f docker compose-local-fs.yml -p ps up -d --build --remove-orphans && cd -' C-m \; \
-  send-keys -t0 'nvm use lts/dubnium ; client' C-m \; \
-  send-keys -t1 'cd backend/' C-m \; \
-  send-keys -t1 'nvm use lts/dubnium ; backend' C-m \; \
-  select-pane -t2 \;
-}
-gstmux() {
-  tmux new-session \; \
-  split-window -h \; \
-  send-keys -t0 'cd infrastructure/docker/ && docker compose up -d --build --remove-orphans && cd ../../' C-m \; \
-  send-keys -t1 'cd backend/' C-m \;
-}
 gtmux() {
   tmux new-session \; \
   split-window -h \; \
   send-keys -t0 "gst" C-m \; \
   send-keys -t1 "gdiff $@" C-m \;
-}
-mtmux() {
-  zs b
-  tmux new-session \; \
-  split-window -h \; \
-  send-keys -t0 'zw npm start' C-m \; \
-  send-keys -t1 'gst' C-m \;
 }
 
 perty() {
@@ -1322,6 +1394,16 @@ defaults: container=$container, cmd=$cmd
 
 lint() {
   (
+    declare -a files=()
+    declare -a args=()
+    for arg in $*; do
+      if [[ ${arg:0} == '-' ]]; then
+        args+=($arg)
+      else
+        files+=($(realpath $arg))
+      fi
+    done
+
     project-root
     if [ ! -f package.json ]; then
       echo >&2 "no package json here"
@@ -1329,10 +1411,16 @@ lint() {
       return 1
     fi
 
+    for file in ${files[@]}; do
+      file=${file/$PWD/}
+    done
+    echo ${files[@]}
+
+
     if grep -q '"lint:fix"' package.json; then
-      npm run lint:fix
+      npm run lint:fix -- ${args[@]} ${files[@]}
     elif grep -q '"lint"' package.json; then
-      npm run lint -- --fix
+      npm run lint -- --fix ${args[@]} ${files[@]}
     elif grep -q '"fmt"' package.json; then
       npm run fmt
     elif grep -q '"format"' package.json; then
@@ -1348,64 +1436,6 @@ lint() {
   )
 }
 
-spindex() {
-  TMUX=
-  tmux at -t 'spindex' 2>/dev/null || {
-    goto ps -q
-    cd backend
-    tmux new-session -t 'spindex' \; \
-      split-window -h \; \
-      select-pane -t 0 \; \
-      send-keys "nvm use 10 && watcherHelper -vvvr cli -- -i" C-m \; \
-      select-pane -t 1 \; \
-      send-keys "nvm use 10 && watcherHelper -vvvr ramrod" C-m \; \
-      select-layout even-vertical
-  }
-}
-
-zs() {
-  local usage="zs [b | f | s]
-swap folders
-"
-
-  if [ ! -d "$(git rev-parse --show-toplevel)/.git" ]; then
-    echo "not a git folder"
-    return 1
-  fi
-
-  local calledFrom=$(git rev-parse --show-toplevel)
-  local projectRoot=$(realpath "$calledFrom/..")
-
-  if [ -d $projectRoot/*swagger ]; then
-    local swaggerProject=$(basename $(find $projectRoot -maxdepth 1 -name *swagger))
-    local backendProject=${swaggerProject/[-_]swagger/}
-    local frontendProject=$projectRoot/$(ls $projectRoot |grep -v "$swaggerProject\|$backendProject")
-    local swaggerProject="$projectRoot/$swaggerProject"
-    local backendProject="$projectRoot/$backendProject"
-  fi
-
-  local target=
-  case "$1" in
-    s | -s | --swagger) target=$swaggerProject ;;
-    b | -b | --backend) target=$backendProject ;;
-    f | -f | --frontend) target=$frontendProject ;;
-    '')
-      case $calledFrom in
-        $frontendProject | $swaggerProject) target=$backendProject ;;
-        $backendProject) target=$swaggerProject ;;
-        *) echo "couldn't figure out where we are" && return 1 ;;
-      esac
-    ;;
-    *) echo "$usage" && return 1 ;;
-  esac
-
-  if [ -z "$target" ]; then
-    echo "couldn't figure out what to do"
-    return 1
-  fi
-
-  cd $target
-}
 vbump() {
   gitroot
   INITIAL_VERSION=$(awk -F'"' '$2 ~ /version/ { printf($4); }' package.json)
@@ -1449,14 +1479,19 @@ vbump() {
 }
 
 jest() {
-  if [ ! -f package.json ]; then
-    gitroot
-  fi
-  if [ "$1" == "-s" ]; then
-    args="--setupFilesAfterEnv=$HOME/work/unmangle-jest-console.js"
-    shift
-  fi
-  NODE_ENV=test npx jest --collectCoverage false --verbose --runInBand --passWithNoTests $args $*
+  (
+    if [ ! -f package.json ]; then
+      project-root
+    fi
+    if [ "$1" == "-s" ]; then
+      args="--setupFilesAfterEnv=$HOME/work/unmangle-jest-console.js"
+      shift
+    fi
+    envVars=$(awk -F'"' '{ if ($2 == "test") { gsub(/ jest.*/, "", $4); print($4) } }' package.json)
+    cmd="NODE_ENV=test $envVars npx jest --collectCoverage false --verbose --runInBand --passWithNoTests $args $*"
+    echo "$cmd"
+    eval "$cmd"
+  )
 }
 
 b64() {
@@ -1472,8 +1507,51 @@ b64() {
   done
 }
 
-gen() {
-  npm run generate:nodegen --yes "$@"
+difftool() {
+  git mergetool --tool=vimdiff
+}
+alias uuid="node -p 'require(\"crypto\").randomUUID()'"
+
+ng-build-file() {
+  npm run build -- --watch 2>&1 |awk '
+    {
+      if ($0 ~ "Application bundle") {
+        print("hello") > "/tmp/nglog.txt";
+        close("/tmp/nglog.txt");
+        print("hello") > "/dev/stderr";
+      }
+
+      # hide node module deprecation warning from file, not stderr
+      if ($0 ~ "Deprecation") {
+        off = 1;
+      } else if (off && ($0 ~ "ERROR" || $0 ~ "WARNING")) {
+        off = 0;
+      }
+
+      print($0) > "/dev/stderr";
+      if (off) {
+        next;
+      }
+      print($0) > "/tmp/nglog.txt";
+    }
+  '
+}
+cmds() {
+  # print all aliases and functions in the shell
+  alias
+  declare -F
+}
+alias slint="sub \$(lint |awk -F'[: ]+' '{ print \$0 > \"/dev/stderr\"; if (\$0 ~ /^\//) { file=\$0; next; } if (file) { printf(\"%s:%s\n\", file, \$2); file=0; } }')"
+alias tode="node --experimental-strip-types "
+
+alias dl='docker compose logs '
+btmux() {
+  [[ -f package.json ]] || project-root
+  tmux new-session -d -x "$(tput cols)" -y "$(tput lines)" -n test -s "btmux" \
+    && tmux split-window -t "btmux:test.{top}" -v -p 80 \
+    && tmux send-keys -t "btmux:test.{top}" "npm run build -- -w" Enter \
+    && tmux at -t btmux \
+    || tmux kill-session -s "btmux"
 }
 difftool() {
   git mergetool --tool=vimdiff

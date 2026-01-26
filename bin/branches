@@ -121,8 +121,9 @@ while read branch; do
   allBranches["$branch"]="$branch"
   shortName="${branch/remotes\/$OPT_ORIGIN\//}"
 
+  readingLocal="true"
+
   if [[ $branch =~ remotes/$OPT_ORIGIN/HEAD ]]; then
-    readingLocal=
     continue
   fi
 
@@ -146,7 +147,7 @@ while read branch; do
       onlyRemote[$shortName]="$branch"
     fi
   fi
-done < <(git branch -a |sed 's/^[\*\ ]\ //g')
+done < <(git branch -a --sort=refname |sed 's/^[\*\ ]\ //g')
 
 if [ -n "$OPT_ONLY_BRANCH" ]; then
   if [ -n "${allBranches[$OPT_ONLY_BRANCH]}" ]; then

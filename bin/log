@@ -4,7 +4,6 @@ logDir=~/tmp/ditl
 logfile=$logDir/$(date -I).log
 mkdir -p $(dirname $logfile)
 
-
 runscript() {
   local target=${1:-$logfile}
   if [ ! -f "$target" ]; then
@@ -22,6 +21,7 @@ const fmtMins = (mins) => {
 }
 
 const skip = /\b(smoke|lunch|out|wc)\b/;
+let lastSkipped = false;
 const times = require('fs').readFileSync('$target', 'utf8').split('\n').reduce((last, line) => {
   let data = last?.data || {};
 
@@ -33,6 +33,7 @@ const times = require('fs').readFileSync('$target', 'utf8').split('\n').reduce((
   let [date, ...message] = line.split(' ');
   date = new Date(date.replace(/[\[\]]/g, ''));
   message = message.join(' ');
+  lastSkipped = skip.test(message);
 
   if (last) {
     data[last.message] = (data[last.message] || 0) + getMins(last.date, date);
@@ -49,7 +50,7 @@ Object.entries(times.data).forEach(([message, mins]) => {
   console.log(\`\${fmtMins(mins)} | \${message}\`);
 });
 
-console.error(\`total: \${fmtMins(totalMins)}\`)
+console.error(\`total: \${fmtMins(totalMins)}\${lastSkipped ? ' (stopped)' : ''}\`)
 NODE_SCRIPT
   )" && node /tmp/logscript.js
 }
@@ -68,6 +69,9 @@ options
   -r, --print-raw  cat current log file
   -p, --print      group and print logs
   -P, --previous   print last day's logfile
+  -P, --previous   show last log
+  -R, --resume     re-log the previous entry
+  --retro MINS ARG log ARG for the past MIN mins
   -h, --help       show this menu"
   # -t, --times      print current log file with times
 
@@ -102,6 +106,7 @@ if [ -z "$1" ]; then
 fi
 
 printTimes() {
+  local target="${1:-$logfile}"
   awk -F '[\\]\\[\\-T:+]' '{
     if (!t1) {
       t1 = mktime(sprintf("%d %d %d %d %d %d", $2, $3, $4, $5, $6, $7));
@@ -119,11 +124,20 @@ printTimes() {
     t2 = systime();
     diff = (t2 - t1);
     printf(" (%d:%02d:%02d)\n", diff / 3600, (diff / 60) % 60, diff % 60);
-  }' $logfile
+  }' $target
 }
 
 while [ -n "$1" ]; do
   case $1 in
+    -a | --at)
+      shift
+      date=$(date -Is -d"$1")
+      shift
+      echo "[$date] $*" >> $logfile
+      shift $#
+      sort $logfile >/tmp/sort
+      mv /tmp/sort $logfile
+    ;;
     -f | --file) shift ; logfile=$(getLogfile "$1") ;;
     -e | --edit) vim $logfile ;;
     -E) sub $logfile ;;
@@ -132,7 +146,29 @@ while [ -n "$1" ]; do
     # -t | --times) printTimes $logfile ;;
     -r | --print-raw) printTimes $logfile ;;
     -p | --print) runscript ;;
-    -P | --previous) runscript $(dirname $logfile)/$(ls -1 $(dirname $logfile) |grep -B1 $(basename $logfile) |head -n1) ;;
+    --retro)
+      shift
+      mins=$1
+      shift
+      lastRecording=$(date -Is -d"$mins minutes ago")
+      echo "[$lastRecording] $*" |tee -a $logfile
+      shift $#
+     ;;
+    -P | --previous)
+      filename=$(ls -1 $(dirname $logfile) |grep -B1 $(basename $logfile) |head -n1)
+      if [ -z $filename ]; then
+        filename=$(ls $(dirname $logfile) |tail -n1)
+      fi
+      prev=$(dirname $logfile)/$filename
+      runscript $prev
+      printTimes $prev
+    ;;
+    -R | --resume)
+      previousLog=$(tail -n 2 $logfile |head -n1 |awk -F '] ' '{ print $2; }')
+      echo "[$(date -Is)] $previousLog" |tee -a $logfile
+      sort $logfile >/tmp/sort
+      mv /tmp/sort $logfile
+    ;;
     -h | --help | '') echo "$usage"; exit 0 ;;
     --) shift; [[ -z "$*" ]] || echo "[$(date -Is)] $*" >> $logfile ;;
     -*) echo >&2 -e "unknown option '$1'. To start a log with a '-', use 'log -- -<msg>'\n\n$usage"; exit 1 ;;
