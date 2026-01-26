@@ -1,0 +1,2 @@
+echo 'cd "$(cd $(dirname $0) && pwd)"'
+
